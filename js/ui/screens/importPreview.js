@@ -2,7 +2,7 @@
 // 这一页上的每个控件都直接修改「草稿」，每次修改后重新评估；草稿不等于账本，关掉页面不会留下任何东西。
 import { h } from '../dom.js';
 import { alertDialog, button, closeAllSheets, confirmDialog, issueList, openSheet, promptDialog, seg, toast } from '../components.js';
-import { catDot } from '../fmt.js';
+import { catIcon } from '../fmt.js';
 import { SKIP_CATEGORY, applyColumnMapping, applyHeaderOrder, buildCommit, evaluateDraft, headerOrderMapping, setRowDate, setZeroFill, suggestUnit } from '../../core/importPlan.js';
 import { formatDecimal, formatMoney } from '../../core/money.js';
 import { formatDateZh, isValidYMD } from '../../core/date.js';
@@ -302,7 +302,7 @@ export function openImportPreview(ctx, draft, { imageUrl = null } = {}) {
         .filter((id) => store.state.categories.some((c) => c.id === id))
         .map((id) => {
           const cat = store.state.categories.find((c) => c.id === id);
-          return h('div', { class: 'row between' }, h('span', { class: 'name', style: 'display:inline-flex;gap:8px;align-items:center;font-weight:600' }, catDot(cat), cat.name), seg([{ value: 'no', label: '保持未记录' }, { value: 'zero', label: '确认为 0 元' }], draft.zeroFill.includes(id) ? 'zero' : 'no', (v) => {
+          return h('div', { class: 'row between' }, h('span', { class: 'name', style: 'display:inline-flex;gap:8px;align-items:center;font-weight:600' }, catIcon(cat, store.state.categories, { size: 26 }), cat.name), seg([{ value: 'no', label: '保持未记录' }, { value: 'zero', label: '确认为 0 元' }], draft.zeroFill.includes(id) ? 'zero' : 'no', (v) => {
             setZeroFill(draft, id, v === 'zero');
             change();
           }, { label: `${cat.name}没有金额时` }));

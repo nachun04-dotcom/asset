@@ -1,7 +1,7 @@
 // 首页和详情页共用：封面（总资产）+ 账户明细行。
 import { h } from './dom.js';
 import { stamp } from './components.js';
-import { catDot, catSlotClass, deltaSpan, heroAmount } from './fmt.js';
+import { catIcon, catSlotClass, deltaSpan, heroAmount } from './fmt.js';
 import { formatMoney } from '../core/money.js';
 import { hasValue, knownIds, shares } from '../core/ledger.js';
 import { groupKey, sortedCategories } from '../core/model.js';
@@ -61,7 +61,7 @@ export function accountRows({ snap, categories, unit, cmp = null, group = false 
     const e = snap.entries[cat.id];
     const tags = cat.enabled ? null : h('span', { class: 'tag' }, '已停用');
     if (!hasValue(e)) {
-      return h('div', { class: ['acc', 'unknown', child && 'child'] }, catDot(cat), h('div', { class: 'acc-main' }, h('div', { class: 'acc-name' }, name, tags)), h('div', { class: 'acc-val' }, h('div', { class: 'v' }, '未记录')));
+      return h('div', { class: ['acc', 'unknown', child && 'child'] }, catIcon(cat, categories), h('div', { class: 'acc-main' }, h('div', { class: 'acc-name' }, name, tags)), h('div', { class: 'acc-val' }, h('div', { class: 'v' }, '未记录')));
     }
     const d = cmp?.categories?.[cat.id];
     const sub = [];
@@ -70,7 +70,7 @@ export function accountRows({ snap, categories, unit, cmp = null, group = false 
     return h(
       'div',
       { class: ['acc', child && 'child'] },
-      catDot(cat),
+      catIcon(cat, categories),
       h('div', { class: 'acc-main' }, h('div', { class: 'acc-name' }, name, tags), sub.length ? h('div', { class: 'acc-sub' }, ...sub) : null),
       h('div', { class: 'acc-val' }, h('div', { class: 'v num' }, formatMoney(e.fen, unit)), sh.has(cat.id) ? h('div', { class: 's num' }, shareText(sh.get(cat.id))) : null),
     );
@@ -103,7 +103,7 @@ export function accountRows({ snap, categories, unit, cmp = null, group = false 
         h(
           'div',
           { class: 'acc group' },
-          catDot(root),
+          catIcon(root, categories),
           h('div', { class: 'acc-main' }, h('div', { class: 'acc-name' }, root.name), h('div', { class: 'acc-sub' }, dfen ? deltaSpan(dfen, prev ? dfen / Math.abs(prev) : null, unit) : null, h('span', { class: 'fxnote' }, `${members.length} 个账户`))),
           h('div', { class: 'acc-val' }, h('div', { class: 'v num' }, known.length ? formatMoney(sum, unit) : '未记录'), share ? h('div', { class: 's num' }, shareText(share)) : null),
         ),

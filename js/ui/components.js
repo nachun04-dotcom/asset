@@ -92,15 +92,138 @@ function topLayer() {
   return el;
 }
 
-function removeEntry(entry) {
+const EXIT_MS = 300;
+const reducedMotion = () => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/** 抽屉离场：顺着当前位置（可能正被手指拖着）滑下去，同时遮罩淡出；动画结束后才移除节点。 */
+function leave(entry, animate) {
+  const { el, scrim } = entry;
+  if (!animate || reducedMotion()) {
+    scrim.remove();
+    el.remove();
+    return;
+  }
+  el.setAttribute('inert', '');
+  el.classList.remove('dragging', 'snapping');
+  el.classList.add('leaving');
+  scrim.classList.add('leaving');
+  el.style.transition = `transform ${EXIT_MS}ms cubic-bezier(0.32, 0.72, 0, 1)`;
+  el.style.transform = 'translate3d(0, 100%, 0)';
+  scrim.style.transition = `opacity ${EXIT_MS}ms ease-out`;
+  scrim.style.opacity = '0';
+  setTimeout(() => {
+    scrim.remove();
+    el.remove();
+  }, EXIT_MS + 60);
+}
+
+function removeEntry(entry, { animate = true } = {}) {
   if (entry.closed) return;
   entry.closed = true;
   const i = stack.indexOf(entry);
   if (i >= 0) stack.splice(i, 1);
-  entry.scrim.remove();
-  entry.el.remove();
+  leave(entry, animate);
   entry.restoreFocus?.focus?.();
   entry.onClose?.();
+}
+
+/**
+ * 下拉关闭：从顶部标题栏（或内容已滚到最上面时的任意位置）向下拖，抽屉跟手；
+ * 拖过一段距离或快速下甩就关闭，否则弹回。有未保存内容时，沿用「×」的确认流程。
+ */
+function attachDrag(entry, { head, close }) {
+  const { el, scrim } = entry;
+  let g = null;
+  const isTop = () => stack[stack.length - 1] === entry && !entry.closed;
+  const scrolledInside = (target) => {
+    for (let n = target; n && n !== el; n = n.parentElement) {
+      if (n.scrollHeight > n.clientHeight + 1 && n.scrollTop > 0) {
+        const oy = getComputedStyle(n).overflowY;
+        if (oy === 'auto' || oy === 'scroll') return true;
+      }
+    }
+    return false;
+  };
+  const offsetOf = (dy) => (dy >= 0 ? dy : -Math.min(16, Math.sqrt(-dy) * 2.2));
+  const paint = (dy) => {
+    const off = offsetOf(dy);
+    el.style.transform = `translate3d(0, ${off}px, 0)`;
+    scrim.style.opacity = String(Math.max(0, 1 - (Math.max(0, off) / (el.offsetHeight || 1)) * 1.15));
+  };
+  const snapBack = () => {
+    el.classList.remove('dragging');
+    el.classList.add('snapping');
+    el.style.transform = '';
+    scrim.style.opacity = '';
+    setTimeout(() => el.classList.remove('snapping'), 460);
+  };
+  const begin = (x, y, target, fromHead) => {
+    if (!isTop()) return;
+    g = { x0: x, y0: y, samples: [{ y, t: performance.now() }], vy: 0, on: false, dy: 0, target, fromHead };
+  };
+  /** 返回 true 表示这次移动已被手势接管（调用方应阻止页面滚动）。 */
+  const move = (x, y, cancelable) => {
+    if (!g) return false;
+    const dy = y - g.y0;
+    const dx = x - g.x0;
+    if (!g.on) {
+      if (Math.abs(dy) < 6 && Math.abs(dx) < 6) return false;
+      if (Math.abs(dx) > Math.abs(dy) || dy < 0 || (!g.fromHead && scrolledInside(g.target)) || !cancelable) {
+        g = null;
+        return false;
+      }
+      g.on = true;
+      el.classList.remove('snapping');
+      el.classList.add('dragging');
+    }
+    // 速度只看最近 ~100ms 的移动，这样「先慢后快」的甩动也能被识别
+    const now = performance.now();
+    g.samples.push({ y, t: now });
+    while (g.samples.length > 2 && now - g.samples[0].t > 100) g.samples.shift();
+    const first = g.samples[0];
+    g.vy = g.samples.length > 1 ? (y - first.y) / Math.max(1, now - first.t) : 0;
+    g.dy = dy;
+    paint(dy);
+    return true;
+  };
+  const finish = async (cancelled) => {
+    const s = g;
+    g = null;
+    if (!s?.on) return;
+    const far = s.dy > Math.min(150, (el.offsetHeight || 600) * 0.28);
+    const fling = s.vy > 0.4 && s.dy > 30;
+    if (!cancelled && (far || fling)) {
+      el.classList.remove('dragging');
+      const ok = (await entry.beforeClose?.()) ?? true;
+      if (ok) return close();
+    }
+    snapBack();
+  };
+
+  el.addEventListener('touchstart', (e) => {
+    g = null;
+    if (e.touches.length === 1) begin(e.touches[0].clientX, e.touches[0].clientY, e.target, head.contains(e.target));
+  }, { passive: true });
+  el.addEventListener('touchmove', (e) => {
+    if (e.touches.length !== 1) return;
+    if (move(e.touches[0].clientX, e.touches[0].clientY, e.cancelable)) e.preventDefault();
+  }, { passive: false });
+  el.addEventListener('touchend', () => finish(false));
+  el.addEventListener('touchcancel', () => finish(true));
+
+  // 鼠标（电脑浏览器）：只从标题栏开始拖
+  head.addEventListener('mousedown', (e) => {
+    if (e.button !== 0 || e.target.closest('button')) return;
+    begin(e.clientX, e.clientY, e.target, true);
+    const onMove = (ev) => move(ev.clientX, ev.clientY, true);
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+      finish(false);
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  });
 }
 
 function bindPop() {
@@ -153,6 +276,7 @@ export function openSheet({ title, body, footer, onClose, beforeClose, auto = fa
     /* 个别环境不允许，忽略 */
   }
   el.focus?.();
+  attachDrag(entry, { head, close: () => api.close() });
   const api = {
     el,
     body: bodyEl,
@@ -178,7 +302,7 @@ export function openSheet({ title, body, footer, onClose, beforeClose, auto = fa
 
 export async function closeAllSheets() {
   while (stack.length) {
-    removeEntry(stack[stack.length - 1]);
+    removeEntry(stack[stack.length - 1], { animate: false });
     await backAndSettle();
   }
 }
@@ -244,7 +368,10 @@ export function toast(message, { actionText, onAction, ms = 4200 } = {}) {
   }
   const el = h('div', { class: 'toast' }, h('span', {}, message), actionText ? h('button', { type: 'button', onClick: () => { onAction?.(); el.remove(); } }, actionText) : null);
   toastRoot.appendChild(el);
-  setTimeout(() => el.remove(), ms);
+  setTimeout(() => {
+    el.classList.add('out');
+    setTimeout(() => el.remove(), 240);
+  }, ms);
   return el;
 }
 

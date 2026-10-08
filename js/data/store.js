@@ -1,5 +1,5 @@
 // 应用状态与全部写操作。界面只通过这里读写数据；每个写操作先落盘、成功后才更新内存状态。
-import { DEFAULT_CATEGORIES, DEFAULT_SETTINGS, cleanName, enabledCategories, groupKey, nameKey, newId, nextColorSlot, sortedCategories } from '../core/model.js';
+import { DEFAULT_CATEGORIES, DEFAULT_SETTINGS, cleanName, enabledCategories, groupKey, isIconKey, nameKey, newId, nextColorSlot, sortedCategories } from '../core/model.js';
 import { finalizeSnapshot, findByDate, hasValue } from '../core/ledger.js';
 import { checkSnapshot } from '../core/anomalies.js';
 import { isISODate } from '../core/date.js';
@@ -125,7 +125,7 @@ export function createStore(repo, env = {}) {
         names.add(nameKey(n));
       }
       if (!list.some((c) => c.enabled)) return fail('NONE_ENABLED', '至少要启用一个类别');
-      const next = list.map((c, i) => ({ id: c.id, name: cleanName(c.name), enabled: !!c.enabled, order: i, colorSlot: c.colorSlot, ...(c.group ? { group: c.group } : {}) }));
+      const next = list.map((c, i) => ({ id: c.id, name: cleanName(c.name), enabled: !!c.enabled, order: i, colorSlot: c.colorSlot, ...(c.group ? { group: c.group } : {}), ...(isIconKey(c.icon) ? { icon: c.icon } : {}) }));
       try {
         await repo.setKV('categories', next);
       } catch (e) {

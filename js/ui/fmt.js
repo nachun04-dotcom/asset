@@ -1,12 +1,19 @@
 // 界面里的金额 / 变化量展示。
 import { formatDecimal, formatMoney, formatPercent, formatSigned } from '../core/money.js';
-import { h } from './dom.js';
+import { iconKeyFor } from '../core/model.js';
+import { h, icon } from './dom.js';
 
 export const catSlotClass = (cat) => (cat && cat.colorSlot >= 0 && cat.colorSlot < 8 ? `c${cat.colorSlot}` : 'cx');
 export const catCss = (cat) => (cat && cat.colorSlot >= 0 && cat.colorSlot < 8 ? `var(--cat-${cat.colorSlot})` : 'var(--cat-x)');
 
 export function catDot(cat) {
   return h('span', { class: `dot ${catSlotClass(cat)}`, 'aria-hidden': 'true' });
+}
+
+/** 类别图标：彩色圆角方块 + 白色线条图形，颜色跟着类别固定；同类账户沿用「根」账户的图标。 */
+export function catIcon(cat, categories = [], { size = 32 } = {}) {
+  const glyph = Math.round(size * 0.56);
+  return h('span', { class: `cat-ico ${catSlotClass(cat)}`, style: `--sz:${size}px`, 'aria-hidden': 'true' }, icon(iconKeyFor(cat, categories), { size: glyph, stroke: 1.9 }));
 }
 
 /** 首页大数字：货币符号与小数部分缩小，整数部分最醒目。 */

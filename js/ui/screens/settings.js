@@ -1,12 +1,12 @@
 // 设置：备份与恢复、类别、显示、安全、存储与离线、清除数据。
 import { h, icon } from '../dom.js';
 import { alertDialog, button, confirmDialog, noteBox, openSheet, promptDialog, seg, switchControl, toast } from '../components.js';
-import { catDot } from '../fmt.js';
+import { catIcon, catSlotClass } from '../fmt.js';
 import { openTemplates } from './importHub.js';
 import { MIN_PASSWORD_LENGTH, createBackup, openBackup } from '../../core/backup.js';
 import { exportCSV } from '../../core/csvExport.js';
 import { dayDiff, todayISO } from '../../core/date.js';
-import { sortedCategories } from '../../core/model.js';
+import { CATEGORY_ICON_KEYS, iconKeyFor, sortedCategories } from '../../core/model.js';
 import { MIME, fileStamp, isIOS, isStandalone, pickFile, saveFile } from '../../platform.js';
 import { lockSupported, registerLock, verifyLock } from '../lock.js';
 import { APP_NAME, APP_VERSION } from '../../version.js';
@@ -129,6 +129,8 @@ function confirmRestore(ctx, res) {
 
 /* ------------------------------ 页面 ------------------------------ */
 
+const ICON_LABELS = { wallet: '钱包', chat: '聊天', card: '银行卡', bank: '银行', cash: '现金', coin: '硬币', bitcoin: '数字货币', safe: '保险柜', trend: '走势', chart: '柱状图', sprout: '理财', gem: '贵金属', box: '货物', cart: '购物', briefcase: '公文包', home: '房产', car: '汽车', globe: '海外', receipt: '账单', shield: '保障', heart: '健康', star: '星标', pie: '组合', phone: '手机' };
+
 export function buildSettings(ctx, opts = {}) {
   const { store } = ctx;
   const root = h('div', {}, h('div', { class: 'screen-head' }, h('h1', { class: 'screen-title' }, '设置')));
@@ -198,8 +200,8 @@ export function buildSettings(ctx, opts = {}) {
   section({
     id: 'categories',
     title: '资产类别',
-    sub: '可以改名、调整顺序、停用。停用后历史数据保留，只是新记录里不再出现。',
-    sig: (st) => JSON.stringify(sortedCategories(st.categories).map((c) => [c.id, c.enabled, c.colorSlot])) + st.snapshots.length,
+    sub: '可以改名、换图标、调整顺序、停用。停用后历史数据保留，只是新记录里不再出现。',
+    sig: (st) => JSON.stringify(sortedCategories(st.categories).map((c) => [c.id, c.enabled, c.colorSlot, c.icon ?? null])) + st.snapshots.length,
     build: () => {
       // 注意：这一块在改名时不会重画（避免点击落空），所以所有操作都必须读「当下」的类别，而不是画面生成时的旧快照，
       // 否则改名之后再上移 / 停用，会把旧名字写回去。
@@ -212,6 +214,21 @@ export function buildSettings(ctx, opts = {}) {
           sections.find((x) => x.id === 'categories').draw();
         } else if (ok) toast(ok);
         return r;
+      };
+      /** 图标选择：一个小抽屉，点一下就换；「恢复默认」会清掉自选，回到按名字挑的图标。 */
+      const pickIcon = (id) => {
+        const cat = store.state.categories.find((c) => c.id === id);
+        if (!cat) return;
+        const cats = store.state.categories;
+        const nowKey = iconKeyFor(cat, cats);
+        const sheet = openSheet({ title: `「${cat.name}」的图标`, auto: true, body: null });
+        const choose = async (key) => {
+          const r = await store.saveCategories(current().map((c) => (c.id === id ? { ...c, icon: key ?? undefined } : c)));
+          if (!r.ok) toast(r.message);
+          await sheet.close();
+        };
+        const grid = h('div', { class: 'ico-grid', role: 'listbox', 'aria-label': '图标' }, ...CATEGORY_ICON_KEYS.map((k) => h('button', { type: 'button', role: 'option', class: ['ico-opt', k === nowKey && 'on'], 'aria-selected': String(k === nowKey), 'aria-label': ICON_LABELS[k] ?? k, onClick: () => choose(k) }, h('span', { class: `cat-ico ${catSlotClass(cat)}`, style: '--sz:46px' }, icon(k, { size: 26, stroke: 1.9 })))));
+        sheet.body.appendChild(h('div', { class: 'stack' }, grid, cat.icon ? button('恢复默认图标', () => choose(null), { kind: 'secondary', block: true }) : null));
       };
       const rows = current().map((cat, i, all) => {
         const input = h('input', { type: 'text', value: cat.name, 'aria-label': `类别名称：${cat.name}`, maxlength: 20 });
@@ -254,7 +271,9 @@ export function buildSettings(ctx, opts = {}) {
           const on = e.target.checked;
           await save(current().map((c) => (c.id === cat.id ? { ...c, enabled: on } : c)), on ? null : `已停用「${nameOf(cat.id)}」：历史数据保留，新记录里不再出现`);
         });
-        return h('div', { class: ['cat-item', !cat.enabled && 'off', cat.group && 'sub'] }, catDot(cat), h('div', { class: 'grow' }, input), up, down, del, sw);
+        const ico = h('button', { type: 'button', class: 'ico-btn', 'aria-label': `更换「${cat.name}」的图标` }, catIcon(cat, store.state.categories, { size: 34 }));
+        ico.addEventListener('click', () => pickIcon(cat.id));
+        return h('div', { class: ['cat-item', !cat.enabled && 'off', cat.group && 'sub'] }, ico, h('div', { class: 'grow' }, input), up, down, del, sw);
       });
       const add = async () => {
         const r = await store.addCategory(newName.value);

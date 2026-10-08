@@ -1,7 +1,7 @@
 // 完整备份：一个可恢复的 JSON 文件，可选用密码加密（PBKDF2-SHA-256 + AES-256-GCM，全部由系统自带的 WebCrypto 完成）。
 // 恢复时会严格校验每一条数据；校验失败就拒绝恢复，绝不写入半截数据。
 
-import { APP_FORMAT, DEFAULT_SETTINGS, SCHEMA_VERSION } from './model.js';
+import { APP_FORMAT, DEFAULT_SETTINGS, SCHEMA_VERSION, isIconKey } from './model.js';
 import { hasValue, isComplete } from './ledger.js';
 import { isISODate } from './date.js';
 
@@ -133,7 +133,7 @@ export function validatePayload(p) {
     }
     if (catIds.has(c.id)) err(`类别 id 重复：${c.id}`);
     catIds.add(c.id);
-    categories.push({ id: c.id, name: c.name.trim(), enabled: c.enabled !== false, order: Number.isFinite(c.order) ? c.order : categories.length, colorSlot: Number.isInteger(c.colorSlot) ? c.colorSlot : categories.length, ...(typeof c.group === 'string' && c.group ? { group: c.group } : {}) });
+    categories.push({ id: c.id, name: c.name.trim(), enabled: c.enabled !== false, order: Number.isFinite(c.order) ? c.order : categories.length, colorSlot: Number.isInteger(c.colorSlot) ? c.colorSlot : categories.length, ...(typeof c.group === 'string' && c.group ? { group: c.group } : {}), ...(isIconKey(c.icon) ? { icon: c.icon } : {}) });
   }
   // 同类账户的归属必须指向一个真实存在的类别，否则当作独立类别（不报错，也不丢数据）
   for (const c of categories) if (c.group && (!catIds.has(c.group) || c.group === c.id)) delete c.group;

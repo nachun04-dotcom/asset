@@ -38,6 +38,50 @@ export const SOURCE_LABELS = Object.freeze({
 
 export const CATEGORY_COLOR_SLOTS = 8;
 
+/** 类别图标：只存一个键名（字符串），图形本身在界面层。键名必须在这张表里，其余一律忽略。 */
+export const CATEGORY_ICON_KEYS = Object.freeze([
+  'wallet', 'chat', 'card', 'bank', 'cash', 'coin', 'bitcoin', 'safe', 'trend', 'chart', 'sprout', 'gem',
+  'box', 'cart', 'briefcase', 'home', 'car', 'globe', 'receipt', 'shield', 'heart', 'star', 'pie', 'phone',
+]);
+const ICON_KEY_SET = new Set(CATEGORY_ICON_KEYS);
+export const isIconKey = (k) => typeof k === 'string' && ICON_KEY_SET.has(k);
+
+// 内置类别的默认图标（用户没有选过图标时使用）
+const DEFAULT_ICON_BY_ID = { alipay: 'wallet', wechat: 'chat', goods: 'box', binance: 'bitcoin', bank: 'card' };
+
+// 按名字猜一个合适的图标（只是默认值，用户随时可以在设置里换）；越靠前越优先
+const ICON_GUESS = [
+  [/支付宝|余额宝|alipay/i, 'wallet'],
+  [/微信|零钱|wechat/i, 'chat'],
+  [/币|crypto|btc|eth|binance|okx|比特|以太/i, 'bitcoin'],
+  [/信用卡|银行卡|储蓄卡|借记卡|卡/, 'card'],
+  [/银行|定期|活期|存款|大额存单/, 'bank'],
+  [/现金|钱包|零花/, 'cash'],
+  [/股票|证券|美股|港股|基金|etf|期货/i, 'trend'],
+  [/理财|养老|年金|国债|债券/, 'sprout'],
+  [/黄金|金条|贵金属|珠宝|白银/, 'gem'],
+  [/房|不动产|公寓/, 'home'],
+  [/车/, 'car'],
+  [/货款|货|库存|商品|仓/, 'box'],
+  [/应收|借出|欠款|垫付|报销/, 'receipt'],
+  [/保险|公积金|社保/, 'shield'],
+  [/医|健康/, 'heart'],
+  [/海外|外币|美元|日元|欧元|港币|外汇/, 'globe'],
+  [/生意|公司|店|投资款|合伙/, 'briefcase'],
+];
+
+/** 一个类别该显示哪个图标：自己选过的 > 同类账户的「根」的图标 > 内置默认 > 按名字猜 > 钱包。 */
+export function iconKeyFor(cat, categories = []) {
+  if (!cat) return 'wallet';
+  if (isIconKey(cat.icon)) return cat.icon;
+  const root = cat.group ? categories.find((c) => c.id === cat.group) : null;
+  if (root && root !== cat) return iconKeyFor(root, categories);
+  if (DEFAULT_ICON_BY_ID[cat.id]) return DEFAULT_ICON_BY_ID[cat.id];
+  for (const [re, key] of ICON_GUESS) if (re.test(cat.name ?? '')) return key;
+  return 'wallet';
+}
+
+
 export function newId(prefix = 'id') {
   const c = globalThis.crypto;
   if (c?.randomUUID) return `${prefix}_${c.randomUUID().replace(/-/g, '').slice(0, 16)}`;

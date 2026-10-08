@@ -2,7 +2,7 @@
 // 版面原则：同一类型的账户共用一张卡片（每个账户一行输入框）；每行只有一条小字，说明放进占位符和状态里。
 import { h, icon } from '../dom.js';
 import { alertDialog, button, confirmDialog, noteBox, openSheet, promptDialog, seg, stamp, switchControl, toast } from '../components.js';
-import { catDot } from '../fmt.js';
+import { catIcon } from '../fmt.js';
 import { formatForInput, formatMoney, formatSigned, parseAmount } from '../../core/money.js';
 import { dayDiff, formatDateZh, isISODate, relativeDaysZh, todayISO } from '../../core/date.js';
 import { cleanName, enabledCategories, groupKey, nameKey, sortedCategories, suggestSiblingName } from '../../core/model.js';
@@ -369,7 +369,7 @@ export function openEntry(ctx, { id = null, date = null } = {}) {
       touch();
     });
     const plus = tail ? keepFocus(h('button', { type: 'button', class: 'plus', 'aria-label': `再添加一个${rootName(cat)}账户`, onClick: () => addSibling(cat) }, icon('plus', { size: 13, stroke: 2.4 }))) : null;
-    const who = h('div', { class: 'who' }, catDot(cat), h('div', { class: 'l1' }, h('span', { class: 'nm' }, cat.name), cat.enabled ? null : h('span', { class: 'tag' }, '已停用'), plus), sub, reuse);
+    const who = h('div', { class: 'who' }, catIcon(cat, store.state.categories, { size: 30 }), h('div', { class: 'l1' }, h('span', { class: 'nm' }, cat.name), cat.enabled ? null : h('span', { class: 'tag' }, '已停用'), plus), sub, reuse);
 
     const more = keepFocus(h('button', { type: 'button', class: 'more', 'aria-label': `${cat.name}：更多`, onClick: () => openOptions(cat) }, icon('more', { size: 20 })));
 
