@@ -21,7 +21,7 @@ export function routeFromHash(hash) {
   return ROUTES[key] ? key : 'home';
 }
 
-const THEME_COLOR = { light: '#eff3f0', dark: '#0d1311' };
+const THEME_COLOR = { light: '#f2f4f1', dark: '#0b100f' };
 
 export function applyAppearance(settings) {
   const root = document.documentElement;

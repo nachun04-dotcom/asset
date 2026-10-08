@@ -24,11 +24,11 @@ export function heroAmount(fen, unit, { dim = false } = {}) {
   );
 }
 
-/** 变化量：始终带 ▲/▼ 与正负号，颜色只是辅助（涨跌配色可在设置里对调）。 */
+/** 变化量：始终带三角与正负号，颜色只是辅助（涨跌配色可在设置里对调）。 */
 export function deltaSpan(fen, ratio, unit, { withRatio = true } = {}) {
   if (fen === 0) return h('span', { class: 'chg flat' }, '持平');
   const cls = fen > 0 ? 'up' : 'down';
-  return h('span', { class: `chg ${cls}` }, fen > 0 ? '▲ ' : '▼ ', formatSigned(fen, unit), withRatio && ratio != null ? ` (${formatPercent(ratio)})` : '');
+  return h('span', { class: `chg ${cls}` }, h('i', { class: 'tri', 'aria-hidden': 'true' }), formatSigned(fen, unit), withRatio && ratio != null ? h('span', { class: 'pct' }, ` ${formatPercent(ratio)}`) : null);
 }
 
 export function compactYuan(fen) {

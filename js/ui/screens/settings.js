@@ -20,7 +20,7 @@ const when = (iso) => {
 
 const row = (label, desc, control) => h('div', { class: 'setting' }, h('div', { class: 'grow' }, h('div', {}, label), desc ? h('div', { class: 'desc' }, desc) : null), control);
 const listItem = (iconName, title, meta, onClick) =>
-  h('button', { type: 'button', class: 'item', onClick }, h('span', { style: 'color:var(--pine-text);flex:none;display:grid' }, icon(iconName)), h('span', { class: 'grow' }, h('div', { class: 'title' }, title), meta ? h('div', { class: 'meta' }, meta) : null), icon('chevronR', { size: 18 }));
+  h('button', { type: 'button', class: 'item', onClick }, h('span', { class: 'ico plain' }, icon(iconName)), h('span', { class: 'grow' }, h('div', { class: 'title' }, title), meta ? h('div', { class: 'meta' }, meta) : null), icon('chevronR', { size: 18 }));
 
 /* ------------------------------ 备份 / 恢复 ------------------------------ */
 

@@ -1,8 +1,8 @@
 // 通用界面组件：分段控件、印章标签、提示条、空状态、抽屉、对话框、提示消息。
 import { h, icon, clear } from './dom.js';
 
-export function seg(options, value, onChange, { block = false, label } = {}) {
-  const wrap = h('div', { class: ['seg', block && 'block'], role: 'group', 'aria-label': label });
+export function seg(options, value, onChange, { block = false, label, variant } = {}) {
+  const wrap = h('div', { class: ['seg', block && 'block', variant], role: 'group', 'aria-label': label });
   const draw = (v) => {
     clear(wrap);
     for (const o of options) {

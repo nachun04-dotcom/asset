@@ -153,8 +153,8 @@ export function buildLineChart({ series, allDates = [], unit = 'yuan', height = 
         const isolated = segs.some((sg) => sg.length === 1 && sg[0] === p);
         const hollow = p.complete === false;
         if (!(hollow || isEnd || isolated)) return;
-        marks.appendChild(s('circle', { cx: p.px, cy: p.py, r: 6, style: 'fill:var(--surface)' }));
-        marks.appendChild(s('circle', { cx: p.px, cy: p.py, r: 4, style: hollow ? `fill:var(--surface);stroke:${se.color};stroke-width:2` : `fill:${se.color}` }));
+        marks.appendChild(s('circle', { cx: p.px, cy: p.py, r: 6, style: 'fill:var(--page)' }));
+        marks.appendChild(s('circle', { cx: p.px, cy: p.py, r: 4, style: hollow ? `fill:var(--page);stroke:${se.color};stroke-width:2` : `fill:${se.color}` }));
       });
       if (endLabel && se === vis[0]) {
         const last = pts[pts.length - 1];
@@ -181,7 +181,7 @@ export function buildLineChart({ series, allDates = [], unit = 'yuan', height = 
       for (const se of vis) {
         const p = se.points.find((q) => dayNumber(q.date) === day);
         if (p) {
-          hover.appendChild(s('circle', { cx: px, cy: yOf(p.fen), r: 6, style: 'fill:var(--surface)' }));
+          hover.appendChild(s('circle', { cx: px, cy: yOf(p.fen), r: 6, style: 'fill:var(--page)' }));
           hover.appendChild(s('circle', { cx: px, cy: yOf(p.fen), r: 4, style: `fill:${se.color}` }));
         }
         tip.appendChild(h('div', { class: 't-row' }, h('i', { class: 't-key', style: `background:${se.color}` }), h('span', { class: 't-name' }, se.name + (p && p.complete === false ? '（不完整）' : '')), h('span', { class: 't-val' }, p ? formatMoney(p.fen, unit) : '未记录')));
@@ -242,13 +242,6 @@ export function buildLineChart({ series, allDates = [], unit = 'yuan', height = 
 }
 
 /* ------------------------------ 占比条 ------------------------------ */
-
-/** parts: [{ name, cls('c0'..), fen, share }] —— 条形用 2px 间隙分隔，数值写在下面的列表里（不在小色块内写字）。 */
-export function buildComposition({ parts, unit }) {
-  const bar = h('div', { class: 'bar-stack', role: 'img', 'aria-label': '各类别占比' }, ...parts.map((p) => h('i', { class: p.cls, style: `flex:${Math.max(p.share, 0.004)}`, title: `${p.name} ${(p.share * 100).toFixed(1)}%` })));
-  const list = h('div', { class: 'leaders', style: 'margin-top:0;border-top:0;padding-top:0' }, ...parts.map((p) => h('div', { class: 'leader' }, h('span', { class: 'name' }, h('span', { class: `dot ${p.cls}` }), p.name), h('span', { class: 'dots' }), h('span', { class: 'val' }, `${(p.share * 100).toFixed(1)}%`, h('span', { class: 'sub muted' }, formatMoney(p.fen, unit))))));
-  return h('div', {}, bar, list);
-}
 
 /** 数据表（图表的无障碍对照） */
 export function buildDataTable({ columns, rows }) {

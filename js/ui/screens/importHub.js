@@ -216,13 +216,13 @@ export function buildImport(ctx) {
   const root = h('div', {});
   const ocrNote = h('span', { class: 'meta' }, '识别截图 / 照片里的文字');
   const item = (iconName, title, meta, onClick) =>
-    h('button', { type: 'button', class: 'item', onClick }, h('span', { class: 'glyph', style: 'width:40px;height:40px;border-radius:12px;display:grid;place-items:center;background:var(--pine-soft);color:var(--pine-text);flex:none' }, iconEl(iconName)), h('span', { class: 'grow' }, h('div', { class: 'title' }, title), meta), iconEl('chevronR', 18));
+    h('button', { type: 'button', class: 'item', onClick }, h('span', { class: 'ico' }, iconEl(iconName)), h('span', { class: 'grow' }, h('div', { class: 'title' }, title), meta), iconEl('chevronR', 18));
   root.append(
     h('div', { class: 'screen-head' }, h('h1', { class: 'screen-title' }, '导入')),
-    noteBox('info', ['导入不会直接写入账本。', h('div', { class: 'small' }, '无论从哪里导入，都会先进入预览页，让你确认单位、年份、类别对应和每个金额。图片和文件只在这台手机上处理，不会上传。')]),
+    h('p', { class: 'lead' }, '导入的内容会先进入预览页，由你确认单位、年份和每个金额后才会写入。图片和文件只在这台手机上处理，不会上传。'),
     h(
       'div',
-      { class: 'list', style: 'margin-top:16px' },
+      { class: 'list' },
       item('image', '相册图片', ocrNote, () => startImageImport(ctx)),
       item('clipboard', '粘贴文本', h('span', { class: 'meta' }, '粘贴备忘录里的记录'), () => openTextImport(ctx)),
       item('file', 'CSV / Excel 文件', h('span', { class: 'meta' }, '.csv  .xlsx'), () => startFileImport(ctx)),

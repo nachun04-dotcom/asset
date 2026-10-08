@@ -1,8 +1,7 @@
 // 单条记录详情：各类别金额与变化、提示、修改 / 删除。
 import { h } from '../dom.js';
-import { alertDialog, button, confirmDialog, issueList, openSheet, stamp, toast } from '../components.js';
-import { deltaSpan, heroAmount } from '../fmt.js';
-import { categoryRows } from '../snapshotView.js';
+import { alertDialog, button, confirmDialog, issueList, openSheet, toast } from '../components.js';
+import { accountRows, coverCard, shareBar } from '../snapshotView.js';
 import { compareSnapshots, previousCompleteOf, previousOf, recordedTotal } from '../../core/ledger.js';
 import { checkSnapshot } from '../../core/anomalies.js';
 import { formatDateZh, relativeDaysZh } from '../../core/date.js';
@@ -34,26 +33,28 @@ export function openDetail(ctx, id) {
     const cmpTotal = prevComp ? compareSnapshots(snap, prevComp) : null;
     const issues = checkSnapshot(snap, { categories, snaps: snapshots, unit, thresholdPct: settings.changeThresholdPct });
 
-    const head = h(
-      'section',
-      { class: 'leaf' },
-      h('div', { class: 'leaf-head' }, h('div', {}, h('div', { class: 'leaf-label' }, snap.complete ? '总资产' : '已记录合计（不是总资产）'), h('div', { class: 'leaf-date' }, `${formatDateZh(snap.date, { weekday: true })} · ${relativeDaysZh(snap.date)}`)), stamp(snap.complete)),
-      heroAmount(recordedTotal(snap), unit, { dim: !snap.complete }),
-    );
+    const dateText = `${formatDateZh(snap.date, { weekday: true })} · ${relativeDaysZh(snap.date)}`;
+    let change = null;
+    let changeNote = null;
+    let basis = null;
     if (snap.complete) {
-      head.appendChild(
-        h('div', { class: 'delta' }, cmpTotal?.total ? [deltaSpan(cmpTotal.total.fen, cmpTotal.total.ratio, unit), h('span', { class: 'muted small' }, `较 ${formatDateZh(prevComp.date)}`), cmpTotal.total.basisChanged ? h('span', { class: 'tag' }, '类别口径不同，仅供参考') : null] : h('span', { class: 'muted small' }, prevComp ? '' : '没有更早的完整记录可比较')),
-      );
+      if (cmpTotal?.total) {
+        change = cmpTotal.total;
+        changeNote = `较 ${formatDateZh(prevComp.date)}`;
+        if (cmpTotal.total.basisChanged) basis = h('span', { class: 'tag' }, '账户口径不同，仅供参考');
+      } else changeNote = prevComp ? null : '没有更早的完整记录可比较';
     } else if (cmpCat?.partial) {
-      head.appendChild(h('div', { class: 'delta' }, deltaSpan(cmpCat.partial.fen, cmpCat.partial.ratio, unit), h('span', { class: 'muted small' }, `已记录部分较 ${formatDateZh(prevAny.date)}`)));
+      change = cmpCat.partial;
+      changeNote = `已记录部分较 ${formatDateZh(prevAny.date)}`;
     }
-    head.appendChild(categoryRows({ snap, categories, unit, cmp: cmpCat }));
+    const head = coverCard({ label: snap.complete ? '总资产' : '已记录合计（不是总资产）', dateText, fen: recordedTotal(snap), complete: snap.complete, unit, change, changeNote, note: basis, bar: shareBar(snap, categories) });
+    const rows = accountRows({ snap, categories, unit, cmp: cmpCat });
 
-    const frag = [head];
-    if (cmpCat && prevAny) frag.push(h('p', { class: 'muted small', style: 'margin:8px 4px 0' }, `各类别的变化是和 ${formatDateZh(prevAny.date)} 的记录相比${prevAny.complete ? '' : '（那一条不完整，只比较两边都有金额的类别）'}。`));
+    const frag = [head, h('div', { class: 'detail-rows' }, rows)];
+    if (cmpCat && prevAny) frag.push(h('p', { class: 'muted small', style: 'margin:10px 2px 0' }, `变化均与 ${formatDateZh(prevAny.date)} 的记录相比${prevAny.complete ? '' : '（那一条不完整，只比较两边都有金额的账户）'}`));
     if (issues.length) frag.push(h('div', { class: 'card flat', style: 'margin-top:14px' }, h('div', { class: 'card-title' }, '请检查'), issueList(issues)));
     if (snap.note) frag.push(h('div', { class: 'card flat', style: 'margin-top:14px' }, h('div', { class: 'card-title' }, '备注'), h('div', { style: 'white-space:pre-wrap;word-break:break-word' }, snap.note)));
-    frag.push(h('div', { class: 'muted small', style: 'margin:14px 4px 0' }, `${SOURCE_LABELS[snap.source] ?? snap.source}${stampTime(snap.updatedAt) ? ` · 最后修改 ${stampTime(snap.updatedAt)}` : ''}`));
+    frag.push(h('div', { class: 'muted small', style: 'margin:16px 2px 0' }, `${SOURCE_LABELS[snap.source] ?? snap.source}${stampTime(snap.updatedAt) ? ` · 最后修改 ${stampTime(snap.updatedAt)}` : ''}`));
     sheet.body.replaceChildren(...frag);
 
     sheet.setFooter(
