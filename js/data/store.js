@@ -1,5 +1,5 @@
 // 应用状态与全部写操作。界面只通过这里读写数据；每个写操作先落盘、成功后才更新内存状态。
-import { DEFAULT_CATEGORIES, DEFAULT_SETTINGS, cleanName, enabledCategories, nameKey, newId, nextColorSlot, sortedCategories } from '../core/model.js';
+import { DEFAULT_CATEGORIES, DEFAULT_SETTINGS, cleanName, enabledCategories, groupKey, nameKey, newId, nextColorSlot, sortedCategories } from '../core/model.js';
 import { finalizeSnapshot, findByDate, hasValue } from '../core/ledger.js';
 import { checkSnapshot } from '../core/anomalies.js';
 import { isISODate } from '../core/date.js';
@@ -125,7 +125,7 @@ export function createStore(repo, env = {}) {
         names.add(nameKey(n));
       }
       if (!list.some((c) => c.enabled)) return fail('NONE_ENABLED', '至少要启用一个类别');
-      const next = list.map((c, i) => ({ id: c.id, name: cleanName(c.name), enabled: !!c.enabled, order: i, colorSlot: c.colorSlot }));
+      const next = list.map((c, i) => ({ id: c.id, name: cleanName(c.name), enabled: !!c.enabled, order: i, colorSlot: c.colorSlot, ...(c.group ? { group: c.group } : {}) }));
       try {
         await repo.setKV('categories', next);
       } catch (e) {
@@ -135,10 +135,23 @@ export function createStore(repo, env = {}) {
       return { ok: true };
     },
 
-    async addCategory(name) {
+    /**
+     * 新增类别。传入 sameAs（已有类别的 id）时，作为它的「同类账户」：
+     * 排在同类最后一个的后面，归到同一类；8 个颜色槽用完时沿用同类的颜色。
+     */
+    async addCategory(name, { sameAs = null } = {}) {
       const n = cleanName(name);
       const list = sortedCategories(state.categories);
-      return store.saveCategories([...list, { id: newId('c'), name: n, enabled: true, colorSlot: nextColorSlot(list) }]);
+      const base = sameAs ? list.find((c) => c.id === sameAs) : null;
+      if (sameAs && !base) return fail('NO_SUCH_CATEGORY', '找不到要添加同类的账户');
+      const cat = { id: newId('c'), name: n, enabled: true, colorSlot: nextColorSlot(list, base?.colorSlot) };
+      let at = list.length;
+      if (base) {
+        cat.group = groupKey(base);
+        at = list.reduce((last, c, i) => (groupKey(c) === cat.group ? i : last), -1) + 1;
+      }
+      const r = await store.saveCategories([...list.slice(0, at), cat, ...list.slice(at)]);
+      return r.ok ? { ...r, category: { ...cat } } : r;
     },
 
     isCategoryUsed(id) {

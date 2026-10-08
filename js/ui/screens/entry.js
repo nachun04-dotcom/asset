@@ -1,10 +1,10 @@
 // 记一笔 / 修改一条快照。空白 = 未记录，0 = 已确认余额为零；总额由程序计算。
-import { h } from '../dom.js';
-import { alertDialog, button, confirmDialog, noteBox, openSheet, seg, stamp, toast } from '../components.js';
+import { h, icon } from '../dom.js';
+import { alertDialog, button, confirmDialog, noteBox, openSheet, promptDialog, seg, stamp, toast } from '../components.js';
 import { catDot } from '../fmt.js';
-import { UNITS, formatForInput, formatMoney, parseAmount } from '../../core/money.js';
+import { UNITS, formatForInput, formatMoney, formatSigned, parseAmount } from '../../core/money.js';
 import { formatDateZh, isISODate, relativeDaysZh, todayISO } from '../../core/date.js';
-import { enabledCategories, sortedCategories } from '../../core/model.js';
+import { cleanName, enabledCategories, groupKey, nameKey, sortedCategories, suggestSiblingName } from '../../core/model.js';
 import { findByDate, hasValue, isComplete, recordedTotal, sortDesc } from '../../core/ledger.js';
 import { displayCategories } from '../snapshotView.js';
 
@@ -83,7 +83,14 @@ export function openEntry(ctx, { id = null, date = null } = {}) {
 
   function lastOf(cid) {
     const before = sortDesc(store.state.snapshots).find((s) => s.id !== st.id && s.date < st.date && hasValue(s.entries[cid]));
-    return before ? { fen: before.entries[cid].fen, date: before.date } : null;
+    return before ? { fen: before.entries[cid].fen, date: before.date, fx: before.entries[cid].fx ?? null } : null;
+  }
+
+  /** 这一行能「沿用上次」吗：行还空着、上次有数、上次不是外币。 */
+  function reusableOf(cat) {
+    const row = st.rows.get(cat.id);
+    const last = lastOf(cat.id);
+    return last && !last.fx && row && row.text.trim() === '' && !row.fxOn ? last : null;
   }
 
   function recalc() {
@@ -94,12 +101,25 @@ export function openEntry(ctx, { id = null, date = null } = {}) {
       r.input.classList.toggle('invalid', p.state === 'error');
       r.input.setAttribute('aria-invalid', String(p.state === 'error'));
       r.state.className = `state${p.state === 'zero' ? ' zero' : ''}${p.state === 'error' ? ' err' : ''}`;
-      r.state.textContent = p.state === 'error' ? p.msg : p.state === 'empty' ? '未记录（不计入总额，也不等于 0）' : p.state === 'zero' ? '已确认余额为 0' : st.unit === 'wan' ? `= ${formatMoney(p.fen, 'yuan')}` : p.fen >= 1000000 ? `= ${formatMoney(p.fen, 'wan')}` : '';
       const last = lastOf(cat.id);
-      r.last.textContent = last ? `上次 ${formatMoney(last.fen, st.unit)} · ${formatDateZh(last.date, { year: false })}` : '';
+      const hasNum = p.state === 'value' || p.state === 'zero';
+      const conv = p.state === 'value' ? (st.unit === 'wan' ? `= ${formatMoney(p.fen, 'yuan')}` : p.fen >= 1000000 ? `= ${formatMoney(p.fen, 'wan')}` : '') : '';
+      const delta = hasNum && last ? (p.fen === last.fen ? '与上次相同' : `较上次 ${formatSigned(p.fen - last.fen, st.unit)}`) : '';
+      r.state.textContent = p.state === 'error' ? p.msg : p.state === 'empty' ? '未记录（不计入总额，也不等于 0）' : [p.state === 'zero' ? '已确认余额为 0' : '', conv, delta].filter(Boolean).join(' · ');
+      // 「上次」提示：行还空着、且上次不是外币时，点一下就能沿用上次的数（仍然是你主动点的，不会自动填）
+      const canReuse = !!reusableOf(cat);
+      r.last.hidden = !last;
+      r.last.disabled = !canReuse;
+      r.last.classList.toggle('reuse', canReuse);
+      r.last.replaceChildren(...(last ? [`上次 ${formatMoney(last.fen, st.unit)}${last.fx ? `（${last.fx.currency}）` : ''} · ${formatDateZh(last.date, { year: false })}`, ...(canReuse ? [h('b', {}, ' · 沿用')] : [])] : []));
+      r.last.setAttribute('aria-label', last ? (canReuse ? `沿用${cat.name}上次的金额 ${formatMoney(last.fen, st.unit)}` : `${cat.name}上次 ${formatMoney(last.fen, st.unit)}`) : '');
+      r.lastFen = last?.fen ?? null;
       r.fx.hidden = !st.rows.get(cat.id).fxOn;
       r.fxBtn.setAttribute('aria-pressed', String(st.rows.get(cat.id).fxOn));
     }
+    const reusable = ev.cats.filter((c) => reusableOf(c));
+    ui.reuseAll.hidden = reusable.length < 2;
+    ui.reuseAllText.textContent = `把空着的 ${reusable.length} 项都沿用上次的金额`;
     // 总额面板
     const t = ui.total;
     t.label.textContent = ev.count === 0 ? '合计' : ev.complete ? '总资产' : '已记录合计';
@@ -158,13 +178,59 @@ export function openEntry(ctx, { id = null, date = null } = {}) {
     recalc();
   }
 
+  /* ------------------------------ 添加同类账户 ------------------------------ */
+
+  const rootName = (cat) => store.state.categories.find((c) => c.id === groupKey(cat))?.name ?? cat.name;
+
+  let addToast = null;
+  async function addSibling(cat) {
+    const root = rootName(cat);
+    const name = await promptDialog({
+      title: `再添加一个「${root}」账户`,
+      message: '给新账户起个名字，例如「支付宝 2」或「支付宝 · 备用」。以前的记录不受影响，不会因此变成「不完整」。',
+      value: suggestSiblingName(store.state.categories, cat),
+      maxlength: 20,
+      confirmText: '添加',
+      validate: (v) => {
+        const n = cleanName(v);
+        if (!n) return '名称不能为空';
+        if (store.state.categories.some((c) => nameKey(c.name) === nameKey(n))) return '已经有同名账户了，换一个名字';
+        return '';
+      },
+    });
+    if (name == null) return;
+    const res = await store.addCategory(name, { sameAs: cat.id });
+    if (!res.ok) return alertDialog({ title: '没有添加', message: res.message });
+    const scroller = sheet.body;
+    const top = scroller.scrollTop;
+    sheet.body.replaceChildren(buildForm()); // 已填的金额都在 st.rows 里，重画不会丢
+    scroller.scrollTop = top;
+    recalc();
+    const fresh = refs.get(res.category.id)?.input;
+    if (fresh) {
+      fresh.scrollIntoView?.({ block: 'center' });
+      fresh.focus({ preventScroll: true });
+    }
+    addToast?.remove(); // 只保留最新一次的「撤销」，避免点错
+    addToast = toast(`已添加「${res.category.name}」`, {
+      actionText: '撤销',
+      onAction: async () => {
+        const d = await store.deleteCategory(res.category.id);
+        if (!d.ok) return toast(d.message);
+        st.rows.delete(res.category.id);
+        sheet.body.replaceChildren(buildForm());
+        recalc();
+      },
+    });
+  }
+
   /* ------------------------------ 构建表单 ------------------------------ */
 
   function buildRow(cat, idx, all) {
     const r = st.rows.get(cat.id);
     const input = h('input', { type: 'text', inputmode: 'decimal', autocomplete: 'off', autocapitalize: 'off', spellcheck: 'false', class: 'money', 'aria-label': `${cat.name}金额`, placeholder: '留空 = 未记录', value: r.text, enterkeyhint: idx === all.length - 1 ? 'done' : 'next' });
     const state = h('div', { class: 'state' });
-    const last = h('span', { class: 'hint' });
+    const last = h('button', { type: 'button', class: 'last-btn', hidden: true });
     const cur = h('input', { type: 'text', autocomplete: 'off', placeholder: '币种，如 USDT', value: r.cur, 'aria-label': `${cat.name}币种`, maxlength: 12 });
     const orig = h('input', { type: 'text', inputmode: 'decimal', autocomplete: 'off', placeholder: '原币金额，如 1200.5', value: r.orig, 'aria-label': `${cat.name}原币金额` });
     const fx = h('div', { class: 'fx', hidden: !r.fxOn }, h('div', { class: 'hint' }, '非人民币资产：App 不会自动换汇。上面请填你自己折算后的人民币金额；这里记下币种和原币数量作依据。'), h('div', { class: 'row' }, h('div', { class: 'grow' }, cur), h('div', { class: 'grow' }, orig)));
@@ -210,11 +276,20 @@ export function openEntry(ctx, { id = null, date = null } = {}) {
       r.fxOn = !r.fxOn;
       touch();
     } }, '非人民币');
-    refs.set(cat.id, { input, state, last, fx, fxBtn });
+    const ref = { input, state, last, fx, fxBtn, lastFen: null };
+    last.addEventListener('click', () => {
+      if (ref.lastFen == null || last.disabled) return;
+      r.text = formatForInput(ref.lastFen, st.unit);
+      input.value = r.text;
+      touch();
+      input.focus();
+    });
+    const sibBtn = h('button', { type: 'button', class: 'sib-btn', 'aria-label': `再添加一个${rootName(cat)}账户`, onClick: () => addSibling(cat) }, icon('plus', { size: 14, stroke: 2.2 }), '同类');
+    refs.set(cat.id, ref);
     return h(
       'div',
       { class: 'entry-row' },
-      h('div', { class: 'top' }, h('label', { class: 'name' }, catDot(cat), cat.name, cat.enabled ? null : h('span', { class: 'tag' }, '已停用')), last),
+      h('div', { class: 'top' }, h('div', { class: 'name-wrap' }, h('label', { class: 'name' }, catDot(cat), cat.name, cat.enabled ? null : h('span', { class: 'tag' }, '已停用')), sibBtn), last),
       h('div', { class: 'input-wrap' }, input, h('span', { class: 'unit' }, UNITS[st.unit].label)),
       h('div', { class: 'state-row' }, state, h('div', { class: 'tools' }, zeroBtn, clearBtn, fxBtn)),
       fx,
@@ -237,6 +312,22 @@ export function openEntry(ctx, { id = null, date = null } = {}) {
       showDate();
       recalc();
     });
+    ui.reuseAllText = h('span', {});
+    ui.reuseAll = h('button', { type: 'button', class: 'btn sm secondary', hidden: true, onClick: () => {
+      let n = 0;
+      for (const c of visibleCats()) {
+        const last = reusableOf(c);
+        if (!last) continue;
+        const r = st.rows.get(c.id);
+        r.text = formatForInput(last.fen, st.unit);
+        const input = refs.get(c.id)?.input;
+        if (input) input.value = r.text;
+        n++;
+      }
+      st.dirty = true;
+      recalc();
+      toast(`已沿用 ${n} 项上次的金额。有变化的账户请改成新的数。`, { ms: 5200 });
+    } }, icon('undo', { size: 16 }), ui.reuseAllText);
     ui.dup = h('div', { class: 'notes', hidden: true });
     ui.future = h('div', { class: 'notes', hidden: true }, noteBox('info', '这个日期在今天之后，请确认没有选错。'));
 
@@ -278,6 +369,7 @@ export function openEntry(ctx, { id = null, date = null } = {}) {
       ui.future,
       h('div', { class: 'row between' }, h('span', { class: 'label' }, '金额单位'), unitSeg),
       h('p', { class: 'hint', style: 'margin-top:-4px' }, '空白表示「没有记录」，填 0 才表示「余额确认为 0」。两者不会混淆。'),
+      ui.reuseAll,
       ...cats.map((c, i) => buildRow(c, i, cats)),
       h('div', { class: 'field' }, h('label', {}, '备注'), note, h('div', { class: 'hint' }, '备注只做记录，不会改动任何余额。')),
       del,

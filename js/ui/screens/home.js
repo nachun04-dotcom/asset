@@ -7,11 +7,11 @@ import { categorySeries, compareSnapshots, knownIds, latestComplete, latestOvera
 import { checkSnapshot } from '../../core/anomalies.js';
 import { addDays, dayDiff, formatDateZh, relativeDaysZh, todayISO } from '../../core/date.js';
 import { formatMoney } from '../../core/money.js';
-import { sortedCategories } from '../../core/model.js';
+import { groupKey, sortedCategories } from '../../core/model.js';
 import { categoryRows } from '../snapshotView.js';
 
 // 图表的选择状态放在模块里：数据刷新、重画页面后保持不变。
-const view = { range: 'all', partial: false, mode: 'share', hidden: new Set() };
+const view = { range: 'all', partial: false, mode: 'share', hidden: new Set(), groupBy: 'account' };
 
 const RANGES = [
   { value: '90', label: '近 3 月', days: 90 },
@@ -185,10 +185,24 @@ export function buildHome(ctx) {
       if (!sh.length) {
         section2.appendChild(h('p', { class: 'muted small' }, '没有可计算占比的金额（占比只统计大于 0 的类别）。'));
       } else {
-        const parts = sortedCategories(categories)
+        const accounts = sortedCategories(categories)
           .map((c) => ({ c, s: sh.find((x) => x.id === c.id) }))
-          .filter((x) => x.s)
-          .map(({ c, s }) => ({ name: c.name, cls: catSlotClass(c), fen: s.fen, share: s.share }));
+          .filter((x) => x.s);
+        // 同类账户（例如两个支付宝）可以合并成一项来看占比
+        const byType = new Map();
+        for (const { c, s } of accounts) {
+          const key = groupKey(c);
+          const root = categories.find((x) => x.id === key) ?? c;
+          const cur = byType.get(key) ?? { name: root.name, cls: catSlotClass(root), fen: 0, share: 0, n: 0 };
+          cur.fen += s.fen;
+          cur.share += s.share;
+          cur.n += 1;
+          byType.set(key, cur);
+        }
+        const canMerge = [...byType.values()].some((g) => g.n > 1);
+        const merged = canMerge && view.groupBy === 'type';
+        const parts = merged ? [...byType.values()].map(({ name, cls, fen, share, n }) => ({ name: n > 1 ? `${name}（${n} 个账户）` : name, cls, fen, share })) : accounts.map(({ c, s }) => ({ name: c.name, cls: catSlotClass(c), fen: s.fen, share: s.share }));
+        if (canMerge) section2.appendChild(h('div', { class: 'row between', style: 'margin-bottom:8px' }, h('span', { class: 'label' }, '统计方式'), seg([{ value: 'account', label: '按账户' }, { value: 'type', label: '按类型合并' }], view.groupBy, (v) => { view.groupBy = v; draw(); }, { label: '占比统计方式' })));
         section2.appendChild(h('p', { class: 'section-sub' }, `${formatDateZh(shown.date, { year: false })}${shown.complete ? '' : '（不完整，仅按已记录部分计算）'}`));
         section2.appendChild(h('div', { class: 'card' }, buildComposition({ parts, unit })));
       }

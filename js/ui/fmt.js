@@ -36,6 +36,31 @@ export function compactYuan(fen) {
   const sign = fen < 0 ? '−' : '';
   const trim = (n, d) => String(Number(n.toFixed(d)));
   if (v >= 1e8) return `${sign}${trim(v / 1e8, 2)}亿`;
-  if (v >= 1e4) return `${sign}${trim(v / 1e4, v >= 1e6 ? 0 : 1)}万`;
-  return `${sign}${trim(v, 0)}`;
+  if (v >= 1e4) return `${sign}${trim(v / 1e4, v >= 1e6 ? 0 : v >= 1e5 ? 1 : 2)}万`;
+  return `${sign}${Math.round(v).toLocaleString('en-US')}`;
+}
+
+/**
+ * 坐标轴刻度标签：整组一起排版，保证相邻刻度不会显示成一样的字（例如都是「1.5万」）。
+ * 先试「万」，小数位从 0 逐步加到 3；还是区分不开就直接写完整的元。
+ */
+export function axisLabels(fens) {
+  const yuan = fens.map((f) => f / 100);
+  const max = Math.max(0, ...yuan.map((v) => Math.abs(v)));
+  const sign = (v) => (v < 0 ? '−' : '');
+  const distinct = (arr) => new Set(arr).size === arr.length;
+  const trim = (n, d) => String(Number(n.toFixed(d)));
+  const tries = max >= 1e8 ? [[1e8, '亿']] : [];
+  if (max >= 1e4) tries.push([1e4, '万']);
+  for (const [div, suffix] of tries) {
+    for (let d = 0; d <= 3; d++) {
+      const labels = yuan.map((v) => (v === 0 ? '0' : `${sign(v)}${trim(Math.abs(v) / div, d)}${suffix}`));
+      if (distinct(labels)) return labels;
+    }
+  }
+  for (const d of [0, 2]) {
+    const labels = yuan.map((v) => (v === 0 ? '0' : `${sign(v)}${Math.abs(v).toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d })}`));
+    if (distinct(labels) || d === 2) return labels;
+  }
+  return yuan.map(String);
 }

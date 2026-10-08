@@ -56,11 +56,37 @@ export function nameKey(s) {
   return String(s ?? '').normalize('NFKC').replace(/\s+/g, ' ').trim().toLowerCase();
 }
 
-/** 新类别的固定颜色槽：颜色跟着类别走，不随排序或启停变化。 */
-export function nextColorSlot(categories) {
+/**
+ * 新类别的固定颜色槽：颜色跟着类别走，不随排序或启停变化。
+ * 8 个颜色槽用完后：同类账户沿用同类的颜色（preferred），否则用中性灰。
+ */
+export function nextColorSlot(categories, preferred = null) {
   const used = new Set(categories.map((c) => c.colorSlot));
   for (let i = 0; i < CATEGORY_COLOR_SLOTS; i++) if (!used.has(i)) return i;
-  return CATEGORY_COLOR_SLOTS; // 超过 8 类时统一用中性灰
+  return Number.isInteger(preferred) && preferred >= 0 && preferred < CATEGORY_COLOR_SLOTS ? preferred : CATEGORY_COLOR_SLOTS;
+}
+
+/** 同类账户的归属：没有 group 的类别自己就是一类的「根」。 */
+export function groupKey(cat) {
+  return cat.group || cat.id;
+}
+
+/** 这一类下有几个账户（含自己）。 */
+export function groupMembers(categories, cat) {
+  const key = groupKey(cat);
+  return sortedCategories(categories).filter((c) => groupKey(c) === key);
+}
+
+/** 为「添加同类账户」建议一个不重名的名字：支付宝 → 支付宝 2 → 支付宝 3 … */
+export function suggestSiblingName(categories, baseCat) {
+  const root = categories.find((c) => c.id === groupKey(baseCat)) ?? baseCat;
+  const base = cleanName(root.name).replace(/\s*[#＃]?\d+$/, '') || cleanName(root.name);
+  const taken = new Set(categories.map((c) => nameKey(c.name)));
+  for (let n = 2; n < 1000; n++) {
+    const name = `${base} ${n}`;
+    if (!taken.has(nameKey(name))) return name;
+  }
+  return `${base} ${Date.now() % 10000}`;
 }
 
 export function sortedCategories(categories) {

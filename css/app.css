@@ -376,7 +376,15 @@ details.table-view summary { cursor: pointer; color: var(--pine-text); font-size
 
 /* ---------- 录入 / 预览 ---------- */
 .entry-row { background: var(--surface); border-radius: var(--r-md); padding: 12px 14px; border: 1px solid var(--hair); }
-.entry-row .top { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+.entry-row .top { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 4px 10px; margin-bottom: 8px; }
+.entry-row .name-wrap { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
+.sib-btn { display: inline-flex; align-items: center; gap: 2px; min-height: 32px; padding: 0 9px 0 6px; border-radius: 999px; border: 1px dashed var(--rule); background: transparent; color: var(--pine-text); font-size: 13px; font-weight: 600; cursor: pointer; }
+.sib-btn:active { background: var(--pine-soft); }
+.last-btn { font: inherit; font-size: 12.5px; color: var(--ink-3); background: none; border: 0; padding: 6px 0; text-align: right; }
+.last-btn[hidden] { display: none; }
+.last-btn:disabled { opacity: 1; cursor: default; }
+.last-btn.reuse { color: var(--pine-text); cursor: pointer; }
+.last-btn.reuse b { font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
 .entry-row .name { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; }
 .entry-row .input-wrap { display: flex; align-items: center; gap: 8px; }
 .entry-row .unit { color: var(--ink-3); flex: none; min-width: 2em; }
@@ -418,6 +426,7 @@ details.table-view summary { cursor: pointer; color: var(--pine-text); font-size
 /* ---------- 设置 ---------- */
 .cat-item { display: flex; align-items: center; gap: 8px; padding: 10px 10px 10px 16px; border-bottom: 1px solid var(--hair); }
 .cat-item:last-child { border-bottom: 0; }
+.cat-item.sub { padding-left: 36px; }
 .cat-item input[type="text"] { min-height: 40px; padding: 6px 10px; }
 .cat-item.off input[type="text"] { color: var(--ink-3); }
 .kv { display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--hair); font-size: 14.5px; }

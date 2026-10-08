@@ -197,7 +197,9 @@ function openDialog(build) {
     });
     topLayer().appendChild(scrim);
     topLayer().appendChild(dlg);
-    dlg.querySelector?.('button')?.focus?.();
+    const first = dlg.__focus ?? dlg.querySelector?.('button');
+    first?.focus?.();
+    if (dlg.__focus) dlg.__focus.select?.();
   });
 }
 
@@ -215,10 +217,10 @@ export function alertDialog({ title, message, okText = '知道了' }) {
 }
 
 /** 单行输入对话框 → Promise<string|null> */
-export function promptDialog({ title, message, placeholder = '', confirmText = '确定', type = 'text', validate }) {
+export function promptDialog({ title, message, placeholder = '', value = '', confirmText = '确定', type = 'text', maxlength, validate }) {
   return openDialog((done) => {
     const err = h('div', { class: 'err', role: 'alert' });
-    const input = h('input', { type, placeholder, autocomplete: 'off', 'aria-label': title });
+    const input = h('input', { type, placeholder, autocomplete: 'off', 'aria-label': title, value, maxlength });
     const submit = () => {
       const msg = validate?.(input.value);
       if (msg) {
@@ -228,7 +230,9 @@ export function promptDialog({ title, message, placeholder = '', confirmText = '
       done(input.value);
     };
     input.addEventListener('keydown', (e) => e.key === 'Enter' && submit());
-    return h('div', { class: 'dialog', role: 'dialog', 'aria-modal': 'true' }, h('h2', {}, title), message ? h('p', { style: 'margin-bottom:12px' }, message) : null, input, err, h('div', { class: 'actions' }, h('button', { class: 'btn', type: 'button', onClick: submit }, confirmText), h('button', { class: 'btn secondary', type: 'button', onClick: () => done(null) }, '取消')));
+    const dlg = h('div', { class: 'dialog', role: 'dialog', 'aria-modal': 'true' }, h('h2', {}, title), message ? h('p', { style: 'margin-bottom:12px' }, message) : null, input, err, h('div', { class: 'actions' }, h('button', { class: 'btn', type: 'button', onClick: submit }, confirmText), h('button', { class: 'btn secondary', type: 'button', onClick: () => done(null) }, '取消')));
+    dlg.__focus = input; // 输入框优先获得焦点（手机上直接弹出键盘）
+    return dlg;
   });
 }
 

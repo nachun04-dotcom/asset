@@ -3,7 +3,7 @@
 import { s, h, clear } from './dom.js';
 import { dayNumber, formatDateZh } from '../core/date.js';
 import { formatMoney } from '../core/money.js';
-import { compactYuan } from './fmt.js';
+import { axisLabels, compactYuan } from './fmt.js';
 
 /* ------------------------------ 纯函数（可测试） ------------------------------ */
 
@@ -90,20 +90,22 @@ export function buildLineChart({ series, allDates = [], unit = 'yuan', height = 
   let model = null;
 
   function compute(width) {
-    const margin = { top: 14, right: endLabel ? 52 : 14, bottom: 26, left: 44 };
-    const plotW = Math.max(60, width - margin.left - margin.right);
-    const plotH = height - margin.top - margin.bottom;
     const vis = series.filter((x) => x.points.length);
     const allPts = vis.flatMap((x) => x.points.map((p) => ({ ...p, day: dayNumber(p.date) })));
+    const vals = allPts.map((p) => p.fen);
+    const y = niceScale(Math.min(...vals), Math.max(...vals), { zeroBase });
+    const yLabels = axisLabels(y.ticks);
+    // 左边距跟着刻度文字的长度走（「1.52万」「15,200」都要放得下）
+    const margin = { top: 14, right: endLabel ? 52 : 14, bottom: 26, left: Math.min(70, Math.max(44, 14 + Math.max(...yLabels.map((t) => t.length)) * 7)) };
+    const plotW = Math.max(60, width - margin.left - margin.right);
+    const plotH = height - margin.top - margin.bottom;
     const days = [...new Set(allPts.map((p) => p.day))].sort((a, b) => a - b);
     const minDay = days[0];
     const maxDay = days[days.length - 1];
-    const vals = allPts.map((p) => p.fen);
-    const y = niceScale(Math.min(...vals), Math.max(...vals), { zeroBase });
     const xOf = (day) => margin.left + (maxDay === minDay ? plotW / 2 : ((day - minDay) / (maxDay - minDay)) * plotW);
     const yOf = (v) => margin.top + plotH - ((v - y.min) / (y.max - y.min)) * plotH;
     const allDays = [...new Set((allDates.length ? allDates : allPts.map((p) => p.date)).map(dayNumber))].sort((a, b) => a - b);
-    return { margin, plotW, plotH, vis, days, minDay, maxDay, y, xOf, yOf, allDays, width };
+    return { margin, plotW, plotH, vis, days, minDay, maxDay, y, yLabels, xOf, yOf, allDays, width };
   }
 
   function draw() {
@@ -114,14 +116,14 @@ export function buildLineChart({ series, allDates = [], unit = 'yuan', height = 
     }
     model = compute(width);
     state.width = width;
-    const { margin, plotW, plotH, vis, days, minDay, maxDay, y, xOf, yOf, allDays } = model;
+    const { margin, plotW, plotH, vis, days, minDay, maxDay, y, yLabels, xOf, yOf, allDays } = model;
     const svg = s('svg', { viewBox: `0 0 ${width} ${height}`, role: 'img', 'aria-label': ariaLabel, tabindex: '0' });
 
     const grid = s('g', {});
-    for (const t of y.ticks) {
+    for (const [ti, t] of y.ticks.entries()) {
       const py = yOf(t);
       grid.appendChild(s('line', { class: t === y.min && zeroBase ? 'axis' : 'grid', x1: margin.left, x2: margin.left + plotW, y1: py, y2: py }));
-      grid.appendChild(s('text', { x: margin.left - 8, y: py + 4, 'text-anchor': 'end' }, compactYuan(t)));
+      grid.appendChild(s('text', { x: margin.left - 8, y: py + 4, 'text-anchor': 'end' }, yLabels[ti]));
     }
     svg.appendChild(grid);
     const span = maxDay - minDay;

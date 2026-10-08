@@ -254,7 +254,7 @@ export function buildSettings(ctx, opts = {}) {
           const on = e.target.checked;
           await save(current().map((c) => (c.id === cat.id ? { ...c, enabled: on } : c)), on ? null : `已停用「${nameOf(cat.id)}」：历史数据保留，新记录里不再出现`);
         });
-        return h('div', { class: ['cat-item', !cat.enabled && 'off'] }, catDot(cat), h('div', { class: 'grow' }, input), up, down, del, sw);
+        return h('div', { class: ['cat-item', !cat.enabled && 'off', cat.group && 'sub'] }, catDot(cat), h('div', { class: 'grow' }, input), up, down, del, sw);
       });
       const add = async () => {
         const r = await store.addCategory(newName.value);
