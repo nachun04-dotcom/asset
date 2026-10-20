@@ -144,6 +144,8 @@ export function validatePayload(p) {
   if (Number.isFinite(s.changeThresholdPct) && s.changeThresholdPct > 0 && s.changeThresholdPct <= 1000) settings.changeThresholdPct = s.changeThresholdPct;
   if (s.riseColor === 'red' || s.riseColor === 'green') settings.riseColor = s.riseColor;
   if (['auto', 'light', 'dark'].includes(s.theme)) settings.theme = s.theme;
+  if (typeof s.hideAmounts === 'boolean') settings.hideAmounts = s.hideAmounts;
+  if (Number.isSafeInteger(s.goalFen) && s.goalFen > 0) settings.goalFen = s.goalFen;
   if (Number.isInteger(s.backupRemindDays) && s.backupRemindDays >= 1 && s.backupRemindDays <= 365) settings.backupRemindDays = s.backupRemindDays;
 
   const snapshots = [];
