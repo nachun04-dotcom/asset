@@ -1,7 +1,8 @@
 // 历史记录：按月分组，点开看详情。
 import { h } from '../dom.js';
 import { button, emptyState, seg, stamp } from '../components.js';
-import { deltaSpan } from '../fmt.js';
+import { compactYuan, deltaSpan } from '../fmt.js';
+import { monthEnds } from '../insights.js';
 import { compareSnapshots, knownIds, previousOf, recordedTotal, sortDesc } from '../../core/ledger.js';
 import { formatDateZh, monthKey, weekdayZh } from '../../core/date.js';
 import { formatMoney } from '../../core/money.js';
@@ -26,6 +27,8 @@ export function buildHistory(ctx) {
     if (incompleteCount) {
       frag.push(h('div', { class: 'filter-row' }, seg([{ value: 'all', label: '全部' }, { value: 'incomplete', label: `只看不完整 (${incompleteCount})` }], view.filter, (v) => { view.filter = v; draw(); }, { label: '筛选', variant: 'lite' })));
     } else view.filter = 'all';
+    const ends = monthEnds(snapshots);
+    const endIdx = new Map(ends.map((e, i) => [e.month, i]));
     const list = sortDesc(snapshots).filter((s) => view.filter === 'all' || !s.complete);
     let month = '';
     let box = null;
@@ -33,7 +36,15 @@ export function buildHistory(ctx) {
       const mk = monthKey(s.date);
       if (mk !== month) {
         month = mk;
-        frag.push(h('div', { class: 'month-head' }, h('span', {}, `${Number(mk.slice(5))} 月`), h('span', { class: 'yr' }, mk.slice(0, 4))));
+        // 月份标题右侧：月末总资产与较上一个月末的变化
+        const ei = endIdx.get(mk);
+        const end = ei == null ? null : ends[ei];
+        const prevEnd = ei ? ends[ei - 1] : null;
+        const d = end && prevEnd ? end.fen - prevEnd.fen : null;
+        const sum = end
+          ? h('span', { class: 'month-sum' }, d != null ? h('span', { class: `chg ${d > 0 ? 'up' : d < 0 ? 'down' : 'flat'}` }, d ? h('i', { class: 'tri', 'aria-hidden': 'true' }) : null, d === 0 ? '持平' : `${d > 0 ? '+' : '−'}${compactYuan(Math.abs(d))}`) : null, h('span', { class: 'me' }, `月末 ${compactYuan(end.fen)}`))
+          : null;
+        frag.push(h('div', { class: 'month-head' }, h('span', {}, `${Number(mk.slice(5))} 月`), h('span', { class: 'yr' }, mk.slice(0, 4)), sum));
         box = h('div', { class: 'list' });
         frag.push(box);
       }
