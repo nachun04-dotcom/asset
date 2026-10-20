@@ -25,6 +25,8 @@ export const DEFAULT_SETTINGS = Object.freeze({
   backupRemindDays: 14,
   lockEnabled: false,
   lockAfterSec: 60,
+  hideAmounts: false, // 隐私模式：界面上的金额模糊显示
+  goalFen: null, // 财富目标（分），null = 未设定
 });
 
 export const SOURCE_LABELS = Object.freeze({
