@@ -69,6 +69,12 @@ export function mountApp(rootEl, store, env = {}) {
     current = built;
     view.dataset.route = key; // 样式按页面切换标题上方的小字
     view.replaceChildren(built.el);
+    // 切换页面时内容依次浮现（只在切换那一刻播放；之后数据刷新重画不会再动）
+    view.classList.remove('enter');
+    void view.offsetWidth;
+    view.classList.add('enter');
+    clearTimeout(render.t);
+    render.t = setTimeout(() => view.classList.remove('enter'), 950);
     for (const [k, a] of Object.entries(tabs)) {
       if (k === key || k === r.parent) a.setAttribute('aria-current', 'page');
       else a.removeAttribute('aria-current');
