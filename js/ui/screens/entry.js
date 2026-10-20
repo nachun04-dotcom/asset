@@ -9,6 +9,7 @@ import { dayDiff, formatDateZh, isISODate, relativeDaysZh, todayISO } from '../.
 import { cleanName, enabledCategories, groupKey, nameKey, sortedCategories, suggestSiblingName } from '../../core/model.js';
 import { findByDate, hasValue, isComplete, recordedTotal, sortDesc } from '../../core/ledger.js';
 import { displayCategories } from '../snapshotView.js';
+import { renameCategory } from '../categoryActions.js';
 
 const newRow = () => ({ text: '', fxOn: false, cur: '', orig: '' });
 /** 输入框里显示的金额：带千分位（218,440.72），parseAmount 能原样读回。 */
@@ -332,6 +333,10 @@ export function openEntry(ctx, { id = null, date = null } = {}) {
           rebuild();
         }, { kind: 'danger', block: true, iconName: 'trash' })
       : null;
+    const rename = h('button', { type: 'button', class: 'item', onClick: async () => {
+      await opt.close();
+      if (await renameCategory(store, cat.id)) rebuild();
+    } }, h('span', { class: 'ico' }, icon('edit', { size: 18 })), h('span', { class: 'grow' }, h('div', { class: 'title' }, '改名'), h('div', { class: 'meta' }, `现在叫「${cat.name}」，以前的记录会一起改`)), icon('chevronR', { size: 18 }));
     const sibling = h('button', { type: 'button', class: 'item', onClick: async () => {
       await opt.close();
       addSibling(cat);
@@ -342,7 +347,7 @@ export function openEntry(ctx, { id = null, date = null } = {}) {
       body: h(
         'div',
         { class: 'stack' },
-        h('div', { class: 'list' }, sibling, h('div', { class: 'setting' }, h('div', { class: 'grow' }, h('div', {}, '非人民币资产'), h('div', { class: 'desc' }, '金额栏填折算后的人民币；币种和原币数量记在下面作依据。App 不会自动换汇。')), sw)),
+        h('div', { class: 'list' }, rename, sibling, h('div', { class: 'setting' }, h('div', { class: 'grow' }, h('div', {}, '非人民币资产'), h('div', { class: 'desc' }, '金额栏填折算后的人民币；币种和原币数量记在下面作依据。App 不会自动换汇。')), sw)),
         del,
       ),
     });
