@@ -123,7 +123,7 @@ export function buildLineChart({ series, allDates = [], unit = 'yuan', height = 
     for (const [ti, t] of y.ticks.entries()) {
       const py = yOf(t);
       grid.appendChild(s('line', { class: t === y.min && zeroBase ? 'axis' : 'grid', x1: margin.left, x2: margin.left + plotW, y1: py, y2: py }));
-      grid.appendChild(s('text', { x: margin.left - 8, y: py + 4, 'text-anchor': 'end' }, yLabels[ti]));
+      grid.appendChild(s('text', { class: 'ya', x: margin.left - 8, y: py + 4, 'text-anchor': 'end' }, yLabels[ti]));
     }
     svg.appendChild(grid);
     const span = maxDay - minDay;
@@ -140,12 +140,14 @@ export function buildLineChart({ series, allDates = [], unit = 'yuan', height = 
         for (const seg of segs) {
           if (seg.length < 2) continue;
           const d = `M${seg[0].px},${margin.top + plotH} ` + seg.map((p) => `L${p.px},${p.py}`).join(' ') + ` L${seg[seg.length - 1].px},${margin.top + plotH} Z`;
-          svg.appendChild(s('path', { d, style: `fill:${se.color};opacity:.1;stroke:none` }));
+          const gid = `g${Math.random().toString(36).slice(2, 9)}`;
+          svg.appendChild(s('defs', {}, s('linearGradient', { id: gid, x1: '0', y1: '0', x2: '0', y2: '1' }, s('stop', { offset: '0', style: `stop-color:${se.color};stop-opacity:.22` }), s('stop', { offset: '1', style: `stop-color:${se.color};stop-opacity:0` }))));
+          svg.appendChild(s('path', { d, fill: `url(#${gid})`, style: 'stroke:none' }));
         }
       }
       for (const seg of segs) {
         if (seg.length < 2) continue;
-        svg.appendChild(s('path', { d: seg.map((p, i) => `${i ? 'L' : 'M'}${p.px.toFixed(1)},${p.py.toFixed(1)}`).join(' '), fill: 'none', style: color, 'stroke-width': 2, 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'stroke-dasharray': se.dashed ? '5 5' : null }));
+        svg.appendChild(s('path', { d: seg.map((p, i) => `${i ? 'L' : 'M'}${p.px.toFixed(1)},${p.py.toFixed(1)}`).join(' '), fill: 'none', style: color, 'stroke-width': 1.75, 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'stroke-dasharray': se.dashed ? '5 5' : null }));
       }
       // 标记点：未完整的点画空心；完整系列只在末端和孤立点上画实心点
       pts.forEach((p, i) => {
@@ -153,8 +155,8 @@ export function buildLineChart({ series, allDates = [], unit = 'yuan', height = 
         const isolated = segs.some((sg) => sg.length === 1 && sg[0] === p);
         const hollow = p.complete === false;
         if (!(hollow || isEnd || isolated)) return;
-        marks.appendChild(s('circle', { cx: p.px, cy: p.py, r: 6, style: 'fill:var(--page)' }));
-        marks.appendChild(s('circle', { cx: p.px, cy: p.py, r: 4, style: hollow ? `fill:var(--page);stroke:${se.color};stroke-width:2` : `fill:${se.color}` }));
+        marks.appendChild(s('circle', { cx: p.px, cy: p.py, r: 6, style: 'fill:var(--plot-bg, var(--page))' }));
+        marks.appendChild(s('circle', { cx: p.px, cy: p.py, r: 4, style: hollow ? `fill:var(--plot-bg, var(--page));stroke:${se.color};stroke-width:2` : `fill:${se.color}` }));
       });
       if (endLabel && se === vis[0]) {
         const last = pts[pts.length - 1];
@@ -181,7 +183,7 @@ export function buildLineChart({ series, allDates = [], unit = 'yuan', height = 
       for (const se of vis) {
         const p = se.points.find((q) => dayNumber(q.date) === day);
         if (p) {
-          hover.appendChild(s('circle', { cx: px, cy: yOf(p.fen), r: 6, style: 'fill:var(--page)' }));
+          hover.appendChild(s('circle', { cx: px, cy: yOf(p.fen), r: 6, style: 'fill:var(--plot-bg, var(--page))' }));
           hover.appendChild(s('circle', { cx: px, cy: yOf(p.fen), r: 4, style: `fill:${se.color}` }));
         }
         tip.appendChild(h('div', { class: 't-row' }, h('i', { class: 't-key', style: `background:${se.color}` }), h('span', { class: 't-name' }, se.name + (p && p.complete === false ? '（不完整）' : '')), h('span', { class: 't-val' }, p ? formatMoney(p.fen, unit) : '未记录')));
