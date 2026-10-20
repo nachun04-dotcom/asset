@@ -6,7 +6,7 @@ import { openTemplates } from './importHub.js';
 import { MIN_PASSWORD_LENGTH, createBackup, openBackup } from '../../core/backup.js';
 import { exportCSV } from '../../core/csvExport.js';
 import { dayDiff, todayISO } from '../../core/date.js';
-import { CATEGORY_ICON_KEYS, iconKeyFor, sortedCategories } from '../../core/model.js';
+import { CATEGORY_ICON_KEYS, cleanName, iconKeyFor, sortedCategories } from '../../core/model.js';
 import { MIME, fileStamp, isIOS, isStandalone, pickFile, saveFile } from '../../platform.js';
 import { lockSupported, registerLock, verifyLock } from '../lock.js';
 import { APP_NAME, APP_VERSION } from '../../version.js';
@@ -203,11 +203,11 @@ export function buildSettings(ctx, opts = {}) {
   section({
     id: 'categories',
     title: '资产类别',
-    sub: '可以改名、换图标、调整顺序、停用。停用后历史数据保留，只是新记录里不再出现。',
-    sig: (st) => JSON.stringify(sortedCategories(st.categories).map((c) => [c.id, c.enabled, c.colorSlot, c.icon ?? null])) + st.snapshots.length,
+    sub: '点类别可改名、换图标、调整顺序；右边的开关控制新记录里是否出现它（历史数据始终保留）。',
+    sig: (st) => JSON.stringify(sortedCategories(st.categories).map((c) => [c.id, c.name, c.enabled, c.colorSlot, c.icon ?? null])) + st.snapshots.length,
     build: () => {
-      // 注意：这一块在改名时不会重画（避免点击落空），所以所有操作都必须读「当下」的类别，而不是画面生成时的旧快照，
-      // 否则改名之后再上移 / 停用，会把旧名字写回去。
+      // 所有操作都读「当下」的类别，而不是画面生成时的旧快照：编辑抽屉开着时列表可能已经重画过，
+      // 用旧快照会把刚改的名字、图标写回去。
       const current = () => sortedCategories(store.state.categories);
       const nameOf = (id) => store.state.categories.find((c) => c.id === id)?.name ?? '';
       const save = async (next, ok) => {
@@ -218,65 +218,69 @@ export function buildSettings(ctx, opts = {}) {
         } else if (ok) toast(ok);
         return r;
       };
-      /** 图标选择：一个小抽屉，点一下就换；「恢复默认」会清掉自选，回到按名字挑的图标。 */
-      const pickIcon = (id) => {
-        const cat = store.state.categories.find((c) => c.id === id);
-        if (!cat) return;
-        const cats = store.state.categories;
-        const nowKey = iconKeyFor(cat, cats);
-        const sheet = openSheet({ title: `「${cat.name}」的图标`, auto: true, body: null });
-        const choose = async (key) => {
-          const r = await store.saveCategories(current().map((c) => (c.id === id ? { ...c, icon: key ?? undefined } : c)));
-          if (!r.ok) toast(r.message);
-          await sheet.close();
+      /**
+       * 编辑一个类别：改名、换图标、调整顺序、删除都放在这个小抽屉里。
+       * 列表本身只留「图标 + 完整名称 + 开关」，名字不会再被挤得显示不全。
+       */
+      const editCategory = (id) => {
+        const sheet = openSheet({ title: '编辑类别', auto: true, body: null });
+        const draw = () => {
+          const cat = store.state.categories.find((c) => c.id === id);
+          if (!cat) return sheet.close();
+          const all = current();
+          const at = all.findIndex((c) => c.id === id);
+          const name = h('input', { type: 'text', value: cat.name, maxlength: 20, 'aria-label': '类别名称', enterkeyhint: 'done' });
+          const saveName = async () => {
+            if (cleanName(name.value) === cat.name) return;
+            const r = await store.saveCategories(current().map((c) => (c.id === id ? { ...c, name: name.value } : c)));
+            if (!r.ok) {
+              toast(r.message);
+              name.value = nameOf(id);
+            } else toast('已改名');
+          };
+          name.addEventListener('change', saveName);
+          name.addEventListener('keydown', (e) => e.key === 'Enter' && name.blur());
+          const nowKey = iconKeyFor(cat, store.state.categories);
+          const choose = async (key) => {
+            const r = await store.saveCategories(current().map((c) => (c.id === id ? { ...c, icon: key ?? undefined } : c)));
+            if (!r.ok) toast(r.message);
+            draw();
+          };
+          const grid = h('div', { class: 'ico-grid', role: 'listbox', 'aria-label': '图标' }, ...CATEGORY_ICON_KEYS.map((k) => h('button', { type: 'button', role: 'option', class: ['ico-opt', k === nowKey && 'on'], 'aria-selected': String(k === nowKey), 'aria-label': ICON_LABELS[k] ?? k, onClick: () => choose(k) }, h('span', { class: `cat-ico ${catSlotClass(cat)}`, style: '--sz:44px' }, icon(k, { size: 24, stroke: 1.7 })))));
+          const move = (dir) => async () => {
+            const next = current();
+            const i = next.findIndex((c) => c.id === id);
+            if (i < 0 || !next[i + dir]) return;
+            [next[i], next[i + dir]] = [next[i + dir], next[i]];
+            await save(next);
+            draw();
+          };
+          const del = !store.isCategoryUsed(id)
+            ? button('删除这个类别', async () => {
+                if (!(await confirmDialog({ title: `删除「${nameOf(id)}」？`, message: '这个类别还没有任何记录，可以安全删除。', confirmText: '删除', danger: true }))) return;
+                const r = await store.deleteCategory(id);
+                if (!r.ok) return toast(r.message);
+                await sheet.close();
+              }, { kind: 'danger', block: true, iconName: 'trash' })
+            : h('p', { class: 'hint' }, '这个类别已有历史记录，不能删除；不想再记它时，在列表里关掉开关即可（历史数据保留）。');
+          sheet.body.replaceChildren(
+            h(
+              'div',
+              { class: 'stack edit-cat' },
+              h('div', { class: 'field' }, h('span', { class: 'label' }, '名称'), name),
+              h('div', { class: 'field' }, h('span', { class: 'label' }, '图标'), grid, cat.icon ? button('恢复默认图标', () => choose(null), { kind: 'ghost', sm: true }) : null),
+              h('div', { class: 'field' }, h('span', { class: 'label' }, `顺序（第 ${at + 1} / ${all.length} 个）`), h('div', { class: 'row' }, button('上移', move(-1), { kind: 'secondary', sm: true, iconName: 'up', disabled: at <= 0 }), button('下移', move(1), { kind: 'secondary', sm: true, iconName: 'down', disabled: at >= all.length - 1 }))),
+              del,
+            ),
+          );
         };
-        const grid = h('div', { class: 'ico-grid', role: 'listbox', 'aria-label': '图标' }, ...CATEGORY_ICON_KEYS.map((k) => h('button', { type: 'button', role: 'option', class: ['ico-opt', k === nowKey && 'on'], 'aria-selected': String(k === nowKey), 'aria-label': ICON_LABELS[k] ?? k, onClick: () => choose(k) }, h('span', { class: `cat-ico ${catSlotClass(cat)}`, style: '--sz:46px' }, icon(k, { size: 26, stroke: 1.9 })))));
-        sheet.body.appendChild(h('div', { class: 'stack' }, grid, cat.icon ? button('恢复默认图标', () => choose(null), { kind: 'secondary', block: true }) : null));
+        draw();
       };
-      const rows = current().map((cat, i, all) => {
-        const input = h('input', { type: 'text', value: cat.name, 'aria-label': `类别名称：${cat.name}`, maxlength: 20 });
-        const up = h('button', { type: 'button', class: 'icon-btn', 'aria-label': `上移${cat.name}`, disabled: i === 0, style: 'width:38px' }, icon('up', { size: 18 }));
-        const down = h('button', { type: 'button', class: 'icon-btn', 'aria-label': `下移${cat.name}`, disabled: i === all.length - 1, style: 'width:38px' }, icon('down', { size: 18 }));
-        const del = !store.isCategoryUsed(cat.id) ? h('button', { type: 'button', class: 'icon-btn', 'aria-label': `删除${cat.name}`, style: 'width:38px' }, icon('trash', { size: 18 })) : null;
-        const sw = switchControl(cat.enabled, () => {}, `${cat.name}：启用`);
-        const relabel = (name) => {
-          input.setAttribute('aria-label', `类别名称：${name}`);
-          up.setAttribute('aria-label', `上移${name}`);
-          down.setAttribute('aria-label', `下移${name}`);
-          del?.setAttribute('aria-label', `删除${name}`);
-          sw.querySelector('input').setAttribute('aria-label', `${name}：启用`);
-        };
-        input.addEventListener('change', async () => {
-          const r = await store.saveCategories(current().map((c) => (c.id === cat.id ? { ...c, name: input.value } : c)));
-          if (!r.ok) {
-            toast(r.message);
-            input.value = nameOf(cat.id);
-          } else {
-            input.value = nameOf(cat.id);
-            relabel(input.value);
-          }
-        });
-        const move = (dir) => async () => {
-          const next = current();
-          const at = next.findIndex((c) => c.id === cat.id);
-          if (at < 0 || !next[at + dir]) return;
-          [next[at], next[at + dir]] = [next[at + dir], next[at]];
-          await save(next);
-        };
-        up.addEventListener('click', move(-1));
-        down.addEventListener('click', move(1));
-        del?.addEventListener('click', async () => {
-          if (!(await confirmDialog({ title: `删除「${nameOf(cat.id)}」？`, message: '这个类别还没有任何记录，可以安全删除。', confirmText: '删除', danger: true }))) return;
-          const r = await store.deleteCategory(cat.id);
-          if (!r.ok) toast(r.message);
-        });
-        sw.querySelector('input').addEventListener('change', async (e) => {
-          const on = e.target.checked;
-          await save(current().map((c) => (c.id === cat.id ? { ...c, enabled: on } : c)), on ? null : `已停用「${nameOf(cat.id)}」：历史数据保留，新记录里不再出现`);
-        });
-        const ico = h('button', { type: 'button', class: 'ico-btn', 'aria-label': `更换「${cat.name}」的图标` }, catIcon(cat, store.state.categories, { size: 34 }));
-        ico.addEventListener('click', () => pickIcon(cat.id));
-        return h('div', { class: ['cat-item', !cat.enabled && 'off', cat.group && 'sub'] }, ico, h('div', { class: 'grow' }, input), up, down, del, sw);
+      const rows = current().map((cat) => {
+        const sw = switchControl(cat.enabled, (on) => save(current().map((c) => (c.id === cat.id ? { ...c, enabled: on } : c)), on ? null : `已停用「${nameOf(cat.id)}」：历史数据保留，新记录里不再出现`), `${cat.name}：启用`);
+        const open = h('button', { type: 'button', class: 'cat-open', 'aria-label': `编辑「${cat.name}」` }, catIcon(cat, store.state.categories, { size: 36 }), h('span', { class: 'cat-nm' }, cat.name, cat.enabled ? null : h('span', { class: 'tag' }, '已停用')), icon('chevronR', { size: 16 }));
+        open.addEventListener('click', () => editCategory(cat.id));
+        return h('div', { class: ['cat-item', !cat.enabled && 'off', cat.group && 'sub'] }, open, sw);
       });
       const add = async () => {
         const r = await store.addCategory(newName.value);
