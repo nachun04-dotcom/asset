@@ -229,15 +229,27 @@ export function buildSettings(ctx, opts = {}) {
           if (!cat) return sheet.close();
           const all = current();
           const at = all.findIndex((c) => c.id === id);
+          // 改名：旁边有明确的「保存」按钮（改动后才可点）；直接点别处也会自动保存
           const name = h('input', { type: 'text', value: cat.name, maxlength: 20, 'aria-label': '类别名称', enterkeyhint: 'done' });
+          const saveBtn = button('保存', () => saveName(), { sm: true, disabled: true });
           const saveName = async () => {
-            if (cleanName(name.value) === cat.name) return;
-            const r = await store.saveCategories(current().map((c) => (c.id === id ? { ...c, name: name.value } : c)));
+            const n = cleanName(name.value);
+            if (!n || n === nameOf(id)) {
+              name.value = nameOf(id);
+              saveBtn.disabled = true;
+              return;
+            }
+            const r = await store.saveCategories(current().map((c) => (c.id === id ? { ...c, name: n } : c)));
             if (!r.ok) {
               toast(r.message);
               name.value = nameOf(id);
-            } else toast('已改名');
+            } else toast(`已改名为「${n}」`);
+            saveBtn.disabled = true;
           };
+          name.addEventListener('input', () => {
+            const n = cleanName(name.value);
+            saveBtn.disabled = !n || n === nameOf(id);
+          });
           name.addEventListener('change', saveName);
           name.addEventListener('keydown', (e) => e.key === 'Enter' && name.blur());
           const nowKey = iconKeyFor(cat, store.state.categories);
@@ -267,7 +279,7 @@ export function buildSettings(ctx, opts = {}) {
             h(
               'div',
               { class: 'stack edit-cat' },
-              h('div', { class: 'field' }, h('span', { class: 'label' }, '名称'), name),
+              h('div', { class: 'field' }, h('span', { class: 'label' }, '名称'), h('div', { class: 'row' }, h('div', { class: 'grow' }, name), saveBtn), h('span', { class: 'hint' }, '改名后，以前的记录也会显示新名字，金额不受影响。')),
               h('div', { class: 'field' }, h('span', { class: 'label' }, '图标'), grid, cat.icon ? button('恢复默认图标', () => choose(null), { kind: 'ghost', sm: true }) : null),
               h('div', { class: 'field' }, h('span', { class: 'label' }, `顺序（第 ${at + 1} / ${all.length} 个）`), h('div', { class: 'row' }, button('上移', move(-1), { kind: 'secondary', sm: true, iconName: 'up', disabled: at <= 0 }), button('下移', move(1), { kind: 'secondary', sm: true, iconName: 'down', disabled: at >= all.length - 1 }))),
               del,
