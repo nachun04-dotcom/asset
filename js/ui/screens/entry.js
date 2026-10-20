@@ -1,15 +1,18 @@
 // 记一笔 / 修改一条快照。空白 = 未记录，0 = 已确认余额为零；总额由程序计算。
-// 版面原则：同一类型的账户共用一张卡片（每个账户一行输入框）；每行只有一条小字，说明放进占位符和状态里。
+// 版面原则：顶部是日期和「一键沿用上次」；每个账户一行——左边名字和上次的数，右边是大号金额栏；
+// 只有点金额栏才会弹出键盘（上下滑动时碰到行不会误触）；同类账户的添加、外币等放进每行的「⋯」。
 import { h, icon } from '../dom.js';
 import { alertDialog, button, confirmDialog, noteBox, openSheet, promptDialog, seg, stamp, switchControl, toast } from '../components.js';
 import { catIcon } from '../fmt.js';
-import { formatForInput, formatMoney, formatSigned, parseAmount } from '../../core/money.js';
+import { formatDecimal, formatMoney, formatSigned, parseAmount } from '../../core/money.js';
 import { dayDiff, formatDateZh, isISODate, relativeDaysZh, todayISO } from '../../core/date.js';
 import { cleanName, enabledCategories, groupKey, nameKey, sortedCategories, suggestSiblingName } from '../../core/model.js';
 import { findByDate, hasValue, isComplete, recordedTotal, sortDesc } from '../../core/ledger.js';
 import { displayCategories } from '../snapshotView.js';
 
 const newRow = () => ({ text: '', fxOn: false, cur: '', orig: '' });
+/** 输入框里显示的金额：带千分位（218,440.72），parseAmount 能原样读回。 */
+const showAmount = (fen, unit) => formatDecimal(fen, unit);
 
 /** 按「类型」归组，保持类别原有的先后顺序：同类账户落在同一张卡片里。 */
 function groupsOf(cats) {
@@ -50,7 +53,7 @@ export function openEntry(ctx, { id = null, date = null } = {}) {
     if (snap) {
       for (const [cid, e] of Object.entries(snap.entries)) {
         if (!hasValue(e)) continue;
-        st.rows.set(cid, { text: formatForInput(e.fen, st.unit), fxOn: !!e.fx, cur: e.fx?.currency ?? '', orig: e.fx?.original ?? '' });
+        st.rows.set(cid, { text: showAmount(e.fen, st.unit), fxOn: !!e.fx, cur: e.fx?.currency ?? '', orig: e.fx?.original ?? '' });
       }
     }
   };
@@ -152,17 +155,18 @@ export function openEntry(ctx, { id = null, date = null } = {}) {
       ref.amt.classList.toggle('invalid', bad);
       ref.amt.classList.toggle('filled', row.text.trim() !== '');
       const s = subOf(p, row, lastOf(cat.id, sorted));
-      ref.sub.className = `sub${s.kind && !s.reuse ? ` ${s.kind}` : ''}`;
-      ref.sub.hidden = !s.text || !!s.reuse;
-      ref.sub.textContent = s.reuse ? '' : s.text;
+      // 名字下面一行小字（上次的数 / 较上次变化 / 错误）；能沿用时金额栏左边出现「沿用」
+      ref.sub.className = `sub${s.kind ? ` ${s.kind}` : ''}`;
+      ref.sub.hidden = !s.text;
+      ref.sub.textContent = s.text;
       ref.reuse.hidden = !s.reuse;
-      ref.reuse.textContent = s.reuse ? s.text : '';
       ref.reuse.setAttribute('aria-label', s.reuse ? `沿用${cat.name}上次的金额 ${formatMoney(s.fen, st.unit)}` : '');
       ref.fx.hidden = !row.fxOn;
       ref.more.classList.toggle('on', row.fxOn);
       if (s.reuse) reusable++;
     }
     ui.reuse.hidden = reusable < 2;
+    ui.reuseSub.textContent = `${reusable} 个空着的账户填入上次余额，只改有变化的`;
     ui.reuse.setAttribute('aria-label', `把空着的 ${reusable} 项都沿用上次的金额`);
 
     // 底部：合计（不完整时绝不叫「总资产」）
@@ -170,6 +174,9 @@ export function openEntry(ctx, { id = null, date = null } = {}) {
     ui.stamp.replaceChildren(...(ev.count === 0 ? [] : [stamp(ev.complete, { sm: true })]));
     ui.big.textContent = ev.count === 0 ? '—' : formatMoney(ev.total, st.unit);
     ui.big.classList.toggle('muted', ev.count === 0 || !ev.complete);
+    const need = Math.max(ev.expected.length, ev.count);
+    ui.progress.textContent = need ? `已填 ${ev.count} / ${need}` : '';
+    ui.bar.style.width = `${need ? Math.min(100, (ev.count / need) * 100) : 0}%`;
 
     updateDup();
     ui.future.hidden = !(isISODate(st.date) && st.date > todayISO());
@@ -238,7 +245,7 @@ export function openEntry(ctx, { id = null, date = null } = {}) {
       const last = reusableOf(c, sorted);
       if (!last) continue;
       const r = st.rows.get(c.id);
-      r.text = formatForInput(last.fen, st.unit);
+      r.text = showAmount(last.fen, st.unit);
       const input = refs.get(c.id)?.input;
       if (input) input.value = r.text;
       done.push({ cid: c.id, text: r.text });
@@ -325,13 +332,17 @@ export function openEntry(ctx, { id = null, date = null } = {}) {
           rebuild();
         }, { kind: 'danger', block: true, iconName: 'trash' })
       : null;
+    const sibling = h('button', { type: 'button', class: 'item', onClick: async () => {
+      await opt.close();
+      addSibling(cat);
+    } }, h('span', { class: 'ico' }, icon('plus', { size: 18 })), h('span', { class: 'grow' }, h('div', { class: 'title' }, `再添加一个「${rootName(cat)}」账户`), h('div', { class: 'meta' }, '例如有两个支付宝，分开记录')), icon('chevronR', { size: 18 }));
     const opt = openSheet({
       title: cat.name,
       auto: true,
       body: h(
         'div',
         { class: 'stack' },
-        h('div', { class: 'list' }, h('div', { class: 'setting' }, h('div', { class: 'grow' }, h('div', {}, '非人民币资产'), h('div', { class: 'desc' }, '金额栏填折算后的人民币；币种和原币数量记在下面作依据。App 不会自动换汇。')), sw)),
+        h('div', { class: 'list' }, sibling, h('div', { class: 'setting' }, h('div', { class: 'grow' }, h('div', {}, '非人民币资产'), h('div', { class: 'desc' }, '金额栏填折算后的人民币；币种和原币数量记在下面作依据。App 不会自动换汇。')), sw)),
         del,
       ),
     });
@@ -339,16 +350,26 @@ export function openEntry(ctx, { id = null, date = null } = {}) {
 
   /* ------------------------------ 构建表单 ------------------------------ */
 
-  function buildRow(cat, { idx, n, tail }) {
+  function buildRow(cat, { idx, n }) {
     const r = st.rows.get(cat.id);
     const touch = () => {
       st.dirty = true;
       recalc();
     };
-    const input = h('input', { type: 'text', inputmode: 'decimal', autocomplete: 'off', autocapitalize: 'off', spellcheck: 'false', class: 'money', 'aria-label': `${cat.name}金额`, 'aria-describedby': `acct-sub-${idx}`, placeholder: '未记录', value: r.text, enterkeyhint: idx === n - 1 ? 'done' : 'next' });
+    const input = h('input', { type: 'text', inputmode: 'decimal', autocomplete: 'off', autocapitalize: 'off', spellcheck: 'false', class: 'money', 'aria-label': `${cat.name}金额`, 'aria-describedby': `acct-sub-${idx}`, placeholder: '输入金额', value: r.text, enterkeyhint: idx === n - 1 ? 'done' : 'next' });
     input.addEventListener('input', () => {
       r.text = input.value;
       touch();
+    });
+    // 填完离开时整理成带千分位的写法；写错的保持原样，方便改
+    input.addEventListener('blur', () => {
+      const p = parseAmount(input.value, st.unit);
+      if (!p.ok || p.empty) return;
+      const pretty = showAmount(p.fen, st.unit);
+      if (pretty !== input.value) {
+        input.value = pretty;
+        r.text = pretty;
+      }
     });
     input.addEventListener('keydown', (e) => {
       if (e.key !== 'Enter') return;
@@ -357,20 +378,18 @@ export function openEntry(ctx, { id = null, date = null } = {}) {
       if (next) next.focus();
       else input.blur();
     });
-    const amt = h('div', { class: 'amt' }, h('span', { class: 'pre', 'aria-hidden': 'true' }, '¥'), input, st.unit === 'wan' ? h('span', { class: 'sfx' }, '万') : null);
+    // 金额栏是一个 label：点框里任何位置都会聚焦输入框；行的其他地方不响应，滑动时不会误弹键盘
+    const amt = h('label', { class: 'amt' }, h('span', { class: 'pre', 'aria-hidden': 'true' }, '¥'), input, st.unit === 'wan' ? h('span', { class: 'sfx' }, '万') : null);
 
     const sub = h('div', { class: 'sub', id: `acct-sub-${idx}`, hidden: true });
-    const reuse = keepFocus(h('button', { type: 'button', class: 'sub reuse', hidden: true }));
+    const reuse = keepFocus(h('button', { type: 'button', class: 'reuse', hidden: true, 'aria-label': `${cat.name}：沿用上次的金额` }, icon('repeat', { size: 13, stroke: 2 }), '沿用'));
     reuse.addEventListener('click', () => {
       const last = reusableOf(cat);
       if (!last) return;
-      r.text = formatForInput(last.fen, st.unit);
+      r.text = showAmount(last.fen, st.unit);
       input.value = r.text;
       touch();
     });
-    const plus = tail ? keepFocus(h('button', { type: 'button', class: 'plus', 'aria-label': `再添加一个${rootName(cat)}账户`, onClick: () => addSibling(cat) }, icon('plus', { size: 13, stroke: 2.4 }))) : null;
-    const who = h('div', { class: 'who' }, catIcon(cat, store.state.categories, { size: 30 }), h('div', { class: 'l1' }, h('span', { class: 'nm' }, cat.name), cat.enabled ? null : h('span', { class: 'tag' }, '已停用'), plus), sub, reuse);
-
     const more = keepFocus(h('button', { type: 'button', class: 'more', 'aria-label': `${cat.name}：更多`, onClick: () => openOptions(cat) }, icon('more', { size: 20 })));
 
     const cur = h('input', { type: 'text', autocomplete: 'off', placeholder: '币种 USDT', value: r.cur, 'aria-label': `${cat.name}币种`, maxlength: 12 });
@@ -385,10 +404,13 @@ export function openEntry(ctx, { id = null, date = null } = {}) {
     });
     const fx = h('div', { class: 'fx', hidden: !r.fxOn }, cur, orig);
 
-    const row = h('div', { class: 'acct' }, who, amt, more, fx);
-    row.addEventListener('click', (e) => {
-      if (!e.target.closest('button, input')) input.focus();
-    });
+    const row = h(
+      'div',
+      { class: 'acct' },
+      h('div', { class: 'acct-top' }, catIcon(cat, store.state.categories, { size: 34 }), h('div', { class: 'acct-name' }, h('div', { class: 'l1' }, h('span', { class: 'nm' }, cat.name), cat.enabled ? null : h('span', { class: 'tag' }, '已停用')), sub), more),
+      h('div', { class: 'acct-bottom' }, reuse, amt),
+      fx,
+    );
     refs.set(cat.id, { input, amt, sub, reuse, fx, cur, more });
     return row;
   }
@@ -407,13 +429,13 @@ export function openEntry(ctx, { id = null, date = null } = {}) {
       st.dirty = true;
       recalc();
     });
-    const chip = h('label', { class: 'date-chip' }, icon('calendar', { size: 17 }), ui.dateText, dateInput);
+    const chip = h('label', { class: 'date-chip' }, icon('calendar', { size: 18 }), ui.dateText, h('span', { class: 'chg-date', 'aria-hidden': 'true' }, icon('chevronD', { size: 15 })), dateInput);
 
     const unitSeg = seg([{ value: 'yuan', label: '元' }, { value: 'wan', label: '万元' }], st.unit, (u) => {
       // 换算已填的数：先用旧单位解析成「分」，再按新单位写回；写不对的保持原样
       for (const [, r] of st.rows) {
         const p = parseAmount(r.text, st.unit);
-        if (p.ok && !p.empty) r.text = formatForInput(p.fen, u);
+        if (p.ok && !p.empty) r.text = showAmount(p.fen, u);
       }
       st.unit = u;
       rebuild();
@@ -422,7 +444,7 @@ export function openEntry(ctx, { id = null, date = null } = {}) {
     ui.future = h('div', { class: 'mini', hidden: true }, icon('warn', { size: 14 }), '日期在今天之后，请确认没有选错');
     ui.dup = h('div', { class: 'notes', hidden: true });
 
-    const cards = groups.map((g) => h('div', { class: 'acct-card' }, ...g.map((c, i) => buildRow(c, { idx: flat.indexOf(c), n: flat.length, tail: i === g.length - 1 }))));
+    const cards = groups.map((g) => h('div', { class: 'acct-card' }, ...g.map((c) => buildRow(c, { idx: flat.indexOf(c), n: flat.length }))));
 
     const note = h('textarea', { rows: '2', placeholder: '备注，例如：买了新手机，花了 5,000 元', 'aria-label': '备注', maxlength: 500 }, st.note);
     note.value = st.note;
@@ -449,7 +471,7 @@ export function openEntry(ctx, { id = null, date = null } = {}) {
         } }, icon('trash', { size: 16 }), '删除这条记录')
       : null;
 
-    return h('div', { class: 'entry' }, h('div', { class: 'entry-bar' }, chip, unitSeg), ui.future, ui.dup, ...cards, h('div', { class: 'entry-extra' }, addNote, noteWrap), del);
+    return h('div', { class: 'entry' }, h('div', { class: 'entry-bar' }, chip, unitSeg), ui.future, ui.dup, ui.reuse, h('div', { class: 'acct-list' }, ...cards), h('div', { class: 'entry-extra' }, addNote, noteWrap), del);
   }
 
   /* ------------------------------ 保存 ------------------------------ */
@@ -476,8 +498,11 @@ export function openEntry(ctx, { id = null, date = null } = {}) {
   ui.big = h('span', { class: 'big num' });
   ui.msg = h('div', { class: 'msg', role: 'status', hidden: true });
   ui.save = button('保存', save);
-  const foot = h('div', { class: 'entry-foot' }, h('div', { class: 'sum', 'aria-live': 'polite' }, h('div', { class: 'cap' }, ui.lbl, ui.stamp), ui.big), ui.save, ui.msg);
-  ui.reuse = h('button', { type: 'button', class: 'pill', hidden: true, onClick: reuseAll }, '沿用上次');
+  ui.progress = h('span', { class: 'prog' });
+  ui.bar = h('i', {});
+  const foot = h('div', { class: 'entry-foot' }, h('div', { class: 'fill-bar', 'aria-hidden': 'true' }, ui.bar), h('div', { class: 'sum', 'aria-live': 'polite' }, h('div', { class: 'cap' }, ui.lbl, ui.stamp, ui.progress), ui.big), ui.save, ui.msg);
+  ui.reuseSub = h('span', { class: 'rs' });
+  ui.reuse = h('button', { type: 'button', class: 'reuse-all', hidden: true, onClick: reuseAll }, h('span', { class: 'ra-ico' }, icon('repeat', { size: 18 })), h('span', { class: 'grow' }, h('span', { class: 'rt' }, '一键沿用上次金额'), ui.reuseSub), icon('chevronR', { size: 18 }));
 
   const sheet = openSheet({
     title: st.id ? '修改记录' : '记一笔',
@@ -485,8 +510,6 @@ export function openEntry(ctx, { id = null, date = null } = {}) {
     footer: foot,
     beforeClose: async () => !st.dirty || confirmDialog({ title: '放弃修改？', message: '你填写的内容还没有保存。', confirmText: '放弃', cancelText: '继续编辑', danger: true }),
   });
-  const head = sheet.el.querySelector('.sheet-head');
-  head.insertBefore(ui.reuse, head.lastElementChild);
   recalc();
   return sheet;
 }
