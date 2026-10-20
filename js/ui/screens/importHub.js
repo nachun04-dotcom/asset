@@ -218,7 +218,8 @@ export function buildImport(ctx) {
   const item = (iconName, title, meta, onClick) =>
     h('button', { type: 'button', class: 'item', onClick }, h('span', { class: 'ico' }, iconEl(iconName)), h('span', { class: 'grow' }, h('div', { class: 'title' }, title), meta), iconEl('chevronR', 18));
   root.append(
-    h('div', { class: 'screen-head' }, h('h1', { class: 'screen-title' }, '导入')),
+    h('button', { type: 'button', class: 'back-link', onClick: () => ctx.nav.goto('settings') }, iconEl('chevronL', { size: 18 }), '设置'),
+    h('div', { class: 'screen-head' }, h('h1', { class: 'screen-title' }, '导入记录')),
     h('p', { class: 'lead' }, '导入的内容会先进入预览页，由你确认单位、年份和每个金额后才会写入。图片和文件只在这台手机上处理，不会上传。'),
     h(
       'div',
