@@ -73,6 +73,66 @@ function backAndSettle() {
   });
 }
 
+/* ------------------------------ 键盘与背景锁定 ------------------------------ */
+
+/**
+ * 手机键盘弹出时，浏览器会把整页往上推。这里做两件事：
+ * 1) 抽屉打开期间把背后的页面「钉住」（body 固定），页面不会被推走，关闭后回到原来的滚动位置；
+ * 2) 用 visualViewport 算出键盘占掉的高度，写进 CSS 变量 --kb / --vvh，让抽屉正好停在键盘上方。
+ */
+let vvBound = false;
+function trackViewport() {
+  if (vvBound || typeof window === 'undefined') return;
+  vvBound = true;
+  const root = document.documentElement;
+  const vv = window.visualViewport;
+  const update = () => {
+    const vh = vv ? vv.height : window.innerHeight;
+    const kb = vv ? Math.max(0, window.innerHeight - vv.height - vv.offsetTop) : 0;
+    root.style.setProperty('--vvh', `${Math.round(vh)}px`);
+    root.style.setProperty('--kb', `${Math.round(kb)}px`);
+    root.classList.toggle('kb-open', kb > 80);
+    if (kb > 80) keepFocusedVisible();
+  };
+  vv?.addEventListener('resize', update);
+  vv?.addEventListener('scroll', update);
+  window.addEventListener('resize', update);
+  update();
+}
+
+/** 正在输入的框如果被键盘或抽屉底栏挡住，就在抽屉内部把它滚到中间偏上的位置。 */
+function keepFocusedVisible() {
+  const el = document.activeElement;
+  const body = el?.closest?.('.sheet-body');
+  if (!body || !el.matches('input, textarea, select')) return;
+  clearTimeout(keepFocusedVisible.t);
+  keepFocusedVisible.t = setTimeout(() => {
+    const r = el.getBoundingClientRect();
+    const b = body.getBoundingClientRect();
+    if (r.top < b.top + 16 || r.bottom > b.bottom - 16) body.scrollTo({ top: body.scrollTop + (r.top - b.top) - b.height * 0.32, behavior: 'smooth' });
+  }, 60);
+}
+
+let lockedY = null;
+function lockPage() {
+  if (lockedY != null) return;
+  lockedY = window.scrollY;
+  const b = document.body.style;
+  b.position = 'fixed';
+  b.top = `-${lockedY}px`;
+  b.left = '0';
+  b.right = '0';
+  b.width = '100%';
+}
+function unlockPage() {
+  if (lockedY == null) return;
+  const y = lockedY;
+  lockedY = null;
+  const b = document.body.style;
+  b.position = b.top = b.left = b.right = b.width = '';
+  window.scrollTo(0, y);
+}
+
 function layer() {
   let el = document.getElementById('layer');
   if (!el) {
@@ -123,7 +183,8 @@ function removeEntry(entry, { animate = true } = {}) {
   const i = stack.indexOf(entry);
   if (i >= 0) stack.splice(i, 1);
   leave(entry, animate);
-  entry.restoreFocus?.focus?.();
+  if (!stack.length) unlockPage();
+  entry.restoreFocus?.focus?.({ preventScroll: true });
   entry.onClose?.();
 }
 
@@ -202,7 +263,8 @@ function attachDrag(entry, { head, close }) {
 
   el.addEventListener('touchstart', (e) => {
     g = null;
-    if (e.touches.length === 1) begin(e.touches[0].clientX, e.touches[0].clientY, e.target, head.contains(e.target));
+    // 只从顶部标题栏开始拖：在内容区上下滑动永远只是滚动，不会误关抽屉、弹出「放弃修改？」
+    if (e.touches.length === 1 && head.contains(e.target)) begin(e.touches[0].clientX, e.touches[0].clientY, e.target, true);
   }, { passive: true });
   el.addEventListener('touchmove', (e) => {
     if (e.touches.length !== 1) return;
@@ -269,13 +331,21 @@ export function openSheet({ title, body, footer, onClose, beforeClose, auto = fa
   const root = layer();
   root.appendChild(scrim);
   root.appendChild(el);
+  trackViewport();
+  lockPage();
+  // 键盘升起和抽屉收缩都有动画：分两次检查，确保正在填的那一行露在键盘上方
+  bodyEl.addEventListener('focusin', () => {
+    setTimeout(keepFocusedVisible, 320);
+    setTimeout(keepFocusedVisible, 700);
+  });
+  el.addEventListener('transitionend', (e) => e.target === el && e.propertyName === 'height' && keepFocusedVisible());
   stack.push(entry);
   try {
     history.pushState({ sheet: stack.length }, '');
   } catch {
     /* 个别环境不允许，忽略 */
   }
-  el.focus?.();
+  el.focus?.({ preventScroll: true });
   attachDrag(entry, { head, close: () => api.close() });
   const api = {
     el,
