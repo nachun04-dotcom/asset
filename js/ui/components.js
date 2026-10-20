@@ -51,6 +51,9 @@ const settlers = [];
 
 /** history.back() 是异步的：关闭抽屉后要等它落定，才能安全地改地址栏里的 #路由。 */
 function backAndSettle() {
+  // 只有当前这条历史记录确实是抽屉自己加的，才往回退；否则什么都不做——
+  // 绝不能多退一步，把人带离 App（在 Safari 里会回到上一个网站）。
+  if (typeof history.state?.sheet !== 'number') return Promise.resolve();
   return new Promise((resolve) => {
     suppressPop++;
     let finished = false;
@@ -299,6 +302,8 @@ function bindPop() {
     }
     const top = stack[stack.length - 1];
     if (!top) return;
+    // 退回之后的历史深度若不比现在打开的抽屉少，说明这是我们自己迟到的那次退回，不是用户按了返回
+    if ((history.state?.sheet ?? 0) >= stack.length) return;
     const ok = (await top.beforeClose?.()) ?? true;
     if (!ok) {
       history.pushState({ sheet: stack.length }, '');
