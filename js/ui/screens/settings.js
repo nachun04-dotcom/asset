@@ -10,6 +10,8 @@ import { CATEGORY_ICON_KEYS, iconKeyFor, sortedCategories } from '../../core/mod
 import { MIME, fileStamp, isIOS, isStandalone, pickFile, saveFile } from '../../platform.js';
 import { lockSupported, registerLock, verifyLock } from '../lock.js';
 import { APP_NAME, APP_VERSION } from '../../version.js';
+import { editGoal } from '../insights.js';
+import { compactYuan } from '../fmt.js';
 
 const when = (iso) => {
   const d = new Date(iso);
@@ -162,8 +164,8 @@ export function buildSettings(ctx, opts = {}) {
   /* 备份与恢复 */
   section({
     id: 'backup',
-    title: '备份与恢复',
-    sub: '数据只保存在这台手机的浏览器存储里。换手机、卸载或清除网站数据都会丢失，请定期备份。',
+    title: '导入与备份',
+    sub: '数据只保存在这台手机里。换手机、卸载或清除网站数据都会丢失，请定期备份。',
     sig: (st) => `${st.meta.lastBackupAt}|${st.meta.preRestore?.savedAt}|${st.snapshots.length}`,
     build: () => {
       const { meta, settings, snapshots } = store.state;
@@ -177,6 +179,7 @@ export function buildSettings(ctx, opts = {}) {
         h(
           'div',
           { class: 'list' },
+          listItem('download', '导入记录', '从截图文字、粘贴文本或 CSV / Excel 导入以前的记录', () => ctx.nav.goto('import')),
           listItem('share', '导出完整备份', '可设置密码加密；换手机时用它恢复', () => openBackupExport(ctx)),
           listItem('upload', '从备份文件恢复', '选择之前导出的 .json 备份', () => startRestore(ctx)),
           listItem('table', '导出 CSV', '用 Excel / 表格软件查看和分析（不能用来恢复）', async () => {
@@ -314,6 +317,8 @@ export function buildSettings(ctx, opts = {}) {
       return h(
         'div',
         { class: 'list' },
+        row('隐藏金额', '在公共场合打开时，界面上的金额会模糊显示；首页右上角的眼睛也能切换', switchControl(!!s.hideAmounts, (on) => set({ hideAmounts: on }), '隐藏金额')),
+        row('财富目标', s.goalFen ? '首页总资产卡片会显示达成进度' : '设定后，首页会显示达成进度', button(s.goalFen ? compactYuan(s.goalFen) : '设定', () => editGoal(store), { sm: true, kind: 'secondary' })),
         row('金额单位', '首页和列表里的显示方式', seg([{ value: 'yuan', label: '元' }, { value: 'wan', label: '万元' }], s.unit, (v) => set({ unit: v }), { label: '金额单位' })),
         row('涨跌颜色', '只影响颜色，▲▼ 符号始终显示', seg([{ value: 'red', label: '红涨绿跌' }, { value: 'green', label: '绿涨红跌' }], s.riseColor, (v) => set({ riseColor: v }), { label: '涨跌颜色' })),
         row('外观', null, seg([{ value: 'auto', label: '跟随系统' }, { value: 'light', label: '浅色' }, { value: 'dark', label: '深色' }], s.theme, (v) => set({ theme: v }), { label: '外观' })),
