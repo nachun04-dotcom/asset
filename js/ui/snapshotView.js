@@ -61,7 +61,8 @@ export function accountRows({ snap, categories, unit, cmp = null, group = false 
     const e = snap.entries[cat.id];
     const tags = cat.enabled ? null : h('span', { class: 'tag' }, '已停用');
     if (!hasValue(e)) {
-      return h('div', { class: ['acc', 'unknown', child && 'child'] }, catIcon(cat, categories), h('div', { class: 'acc-main' }, h('div', { class: 'acc-name' }, name, tags)), h('div', { class: 'acc-val' }, h('div', { class: 'v' }, '未记录')));
+      // 没填的账户：金额位置只放一条细横线，下面一行小字说明，不再用斜体「未记录」占满一行
+      return h('div', { class: ['acc', 'unknown', child && 'child'] }, catIcon(cat, categories), h('div', { class: 'acc-main' }, h('div', { class: 'acc-name' }, name, tags), h('div', { class: 'acc-sub' }, h('span', {}, '这次没有填写'))), h('div', { class: 'acc-val' }, h('div', { class: 'v' }, h('span', { class: 'dash', 'aria-label': '未记录' }))));
     }
     const d = cmp?.categories?.[cat.id];
     const sub = [];
@@ -105,7 +106,7 @@ export function accountRows({ snap, categories, unit, cmp = null, group = false 
           { class: 'acc group' },
           catIcon(root, categories),
           h('div', { class: 'acc-main' }, h('div', { class: 'acc-name' }, root.name), h('div', { class: 'acc-sub' }, dfen ? deltaSpan(dfen, prev ? dfen / Math.abs(prev) : null, unit) : null, h('span', { class: 'fxnote' }, `${members.length} 个账户`))),
-          h('div', { class: 'acc-val' }, h('div', { class: 'v num' }, known.length ? formatMoney(sum, unit) : '未记录'), share ? h('div', { class: 's num' }, shareText(share)) : null),
+          h('div', { class: 'acc-val' }, h('div', { class: 'v num' }, known.length ? formatMoney(sum, unit) : h('span', { class: 'dash', 'aria-label': '未记录' })), share ? h('div', { class: 's num' }, shareText(share)) : null),
         ),
       );
       for (const c of members) rows.push(row(c, { child: true }));
