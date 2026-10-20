@@ -2,6 +2,7 @@
 import { h, icon } from './dom.js';
 import { closeAllSheets } from './components.js';
 import { buildHome } from './screens/home.js';
+import { buildAnalysis } from './screens/analysis.js';
 import { buildHistory } from './screens/history.js';
 import { buildImport } from './screens/importHub.js';
 import { buildSettings } from './screens/settings.js';
@@ -9,11 +10,13 @@ import { openEntry } from './screens/entry.js';
 import { openDetail } from './screens/detail.js';
 import { buildLockScreen } from './lock.js';
 
+// 底部标签栏：首页 · 分析 · ＋ · 历史 · 设置。「导入」不常用，从设置页进入（parent 决定高亮哪个标签）。
 const ROUTES = {
   home: { hash: '#/', label: '首页', icon: 'home', build: buildHome },
+  analysis: { hash: '#/analysis', label: '分析', icon: 'pie', build: buildAnalysis },
   history: { hash: '#/history', label: '历史', icon: 'ledger', build: buildHistory },
-  import: { hash: '#/import', label: '导入', icon: 'download', build: buildImport },
   settings: { hash: '#/settings', label: '设置', icon: 'sliders', build: buildSettings },
+  import: { hash: '#/import', label: '导入', icon: 'download', build: buildImport, parent: 'settings' },
 };
 
 export function routeFromHash(hash) {
@@ -21,13 +24,14 @@ export function routeFromHash(hash) {
   return ROUTES[key] ? key : 'home';
 }
 
-const THEME_COLOR = { light: '#f2f4f1', dark: '#0b100f' };
+const THEME_COLOR = { light: '#f5f1e8', dark: '#0b0a08' };
 
 export function applyAppearance(settings) {
   const root = document.documentElement;
   if (settings.theme === 'light' || settings.theme === 'dark') root.setAttribute('data-theme', settings.theme);
   else root.removeAttribute('data-theme');
   root.setAttribute('data-rise', settings.riseColor === 'green' ? 'green' : 'red');
+  root.toggleAttribute('data-mask', !!settings.hideAmounts); // 隐私模式：样式里统一模糊 .mask 金额
   // 手动选了浅色/深色时，让状态栏颜色跟着变；跟随系统时保持 index.html 里按系统外观设置的两条
   const fixed = document.querySelector('meta[name="theme-color"][data-fixed]');
   const auto = document.querySelectorAll('meta[name="theme-color"][media]');
@@ -42,7 +46,7 @@ export function applyAppearance(settings) {
 export function mountApp(rootEl, store, env = {}) {
   const view = h('main', { class: 'screen', id: 'main' });
   const tabs = {};
-  const tabEls = Object.entries(ROUTES).map(([key, r]) => {
+  const tabEls = Object.entries(ROUTES).filter(([, r]) => !r.parent).map(([key, r]) => {
     const a = h('a', { class: 'tab', href: r.hash }, icon(r.icon, { size: 22 }), r.label);
     tabs[key] = a;
     return a;
@@ -63,9 +67,10 @@ export function mountApp(rootEl, store, env = {}) {
     const built = r.build(ctx, pending);
     pending = {};
     current = built;
+    view.dataset.route = key; // 样式按页面切换标题上方的小字
     view.replaceChildren(built.el);
     for (const [k, a] of Object.entries(tabs)) {
-      if (k === key) a.setAttribute('aria-current', 'page');
+      if (k === key || k === r.parent) a.setAttribute('aria-current', 'page');
       else a.removeAttribute('aria-current');
     }
     document.title = key === 'home' ? '资产账本' : `${r.label} · 资产账本`;
