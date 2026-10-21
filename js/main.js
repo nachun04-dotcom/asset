@@ -33,23 +33,23 @@ function registerServiceWorker() {
   navigator.serviceWorker
     .register('./sw.js')
     .then((reg) => {
-      // 新版本下载好后给一个「立即更新」：点了才换（不会在你填到一半时自动刷新），不点就等下次打开再生效
-      const offer = (worker) => {
-        toast('新版本已下载好', {
-          ms: 12000,
-          actionText: '立即更新',
-          onAction: () => {
-            navigator.serviceWorker.addEventListener('controllerchange', () => location.reload(), { once: true });
-            worker.postMessage('skipWaiting');
-          },
-        });
+      // 新版本接管后给一个「立即更新」：点了才刷新（不会在你填到一半时自动刷新），不点的话下次打开就是新版
+      const hadController = !!navigator.serviceWorker.controller;
+      let offered = false;
+      const offerReload = () => {
+        if (offered || !hadController) return;
+        offered = true;
+        toast('新版本已就绪', { ms: 15000, actionText: '立即更新', onAction: () => location.reload() });
       };
-      if (reg.waiting && navigator.serviceWorker.controller) offer(reg.waiting);
-      reg.addEventListener('updatefound', () => {
-        const nw = reg.installing;
-        nw?.addEventListener('statechange', () => {
-          if (nw.state === 'installed' && navigator.serviceWorker.controller) offer(nw);
-        });
+      navigator.serviceWorker.addEventListener('controllerchange', offerReload);
+      // 万一有旧版遗留的「排队中」的新版本，让它马上生效
+      if (reg.waiting && hadController) reg.waiting.postMessage('skipWaiting');
+      // iPhone 从后台切回 App 时不会重新载入，也就不会检查更新：每次回到前台主动检查一次（最多 10 分钟一次）
+      let lastCheck = Date.now();
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState !== 'visible' || Date.now() - lastCheck < 10 * 60 * 1000) return;
+        lastCheck = Date.now();
+        reg.update().catch(() => {});
       });
     })
     .catch(() => {});

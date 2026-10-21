@@ -1,7 +1,8 @@
 // 离线缓存（由 scripts/build-sw.mjs 生成 app/sw.js —— 不要直接改生成出来的文件）。
 // 策略：安装时把整个 App 存进本机缓存；之后一律先用缓存，所以断网、飞行模式下也能打开。
-// 不会请求任何其他网站；新版本下载好后，等所有窗口关闭、再次打开时才会生效（不会在你录入到一半时换掉代码）。
-const VERSION = 'lux20261021b';
+// 不会请求任何其他网站；新版本下载好后立即接管缓存：正在打开的页面不会被强制刷新（不会在你录入到一半时换掉代码），
+// 页面会提示「立即更新」，不点的话下次打开就是新版。
+const VERSION = 'lux20261021c';
 const CACHE = `asset-ledger-${VERSION}`;
 const CORE = [
   "./",
@@ -62,6 +63,8 @@ self.addEventListener('install', (event) => {
           if (res.ok) await cache.put(u, res);
         }),
       );
+      // 新版本缓存好后马上生效，不必等 App 的所有窗口都关掉（iPhone 上常常要关开两次才更新，就是因为这一步）
+      await self.skipWaiting();
     })(),
   );
 });
