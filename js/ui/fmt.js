@@ -45,10 +45,52 @@ export function heroAmount(fen, unit, { dim = false } = {}) {
     { class: ['hero', dim && 'dim'], 'aria-label': formatMoney(fen, unit) },
     fen < 0 ? '−' : '',
     h('span', { class: 'cur' }, '¥'),
-    int,
+    h('span', { class: 'int' }, int),
     dec ? h('span', { class: 'dec' }, `.${dec}`) : null,
     unit === 'wan' ? h('span', { class: 'suf' }, '万') : null,
   );
+}
+
+/**
+ * 首页欢迎动画：大数字从 0 一路滚到总额（先快后慢，约 1.4 秒），落定后金色光泽扫过一次。
+ * 隐藏金额或系统要求减弱动态效果时不播放。
+ */
+export function animateHero(hero, fen, unit) {
+  if (!hero || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const intEl = hero.querySelector('.int');
+  const decEl = hero.querySelector('.dec');
+  if (!intEl) return;
+  const target = Math.abs(fen);
+  const paint = (v) => {
+    const [i, d] = formatDecimal(v, unit, { minDecimals: decEl ? 2 : 0 }).split('.');
+    intEl.textContent = i;
+    if (decEl) decEl.textContent = d ? `.${d}` : '';
+  };
+  const finalInt = intEl.textContent;
+  const finalDec = decEl?.textContent;
+  const done = () => {
+    intEl.textContent = finalInt;
+    if (decEl) decEl.textContent = finalDec;
+    if (hero.classList.contains('shine') || !hero.classList.contains('counting')) return;
+    hero.classList.remove('counting');
+    hero.classList.add('shine');
+    hero.addEventListener('animationend', () => hero.classList.remove('shine'), { once: true });
+  };
+  hero.classList.add('counting');
+  const t0 = performance.now();
+  const dur = 1400;
+  const step = (now) => {
+    const p = Math.min(1, (now - t0) / dur);
+    if (p >= 1) return done();
+    paint(Math.round(target * (1 - 2 ** (-10 * p))));
+    hero._raf = requestAnimationFrame(step);
+  };
+  paint(0);
+  hero._raf = requestAnimationFrame(step);
+  setTimeout(() => {
+    cancelAnimationFrame(hero._raf);
+    done();
+  }, dur + 200); // 动画帧被暂停（切到后台）时也保证最后是准确的数
 }
 
 /** 变化量：始终带三角与正负号，颜色只是辅助（涨跌配色可在设置里对调）。 */

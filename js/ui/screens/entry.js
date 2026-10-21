@@ -2,7 +2,7 @@
 // 版面原则：顶部是日期和「一键沿用上次」；每个账户一行——左边名字和上次的数，右边是大号金额栏；
 // 只有点金额栏才会弹出键盘（上下滑动时碰到行不会误触）；同类账户的添加、外币等放进每行的「⋯」。
 import { h, icon } from '../dom.js';
-import { alertDialog, button, confirmDialog, noteBox, openSheet, promptDialog, seg, stamp, switchControl, toast } from '../components.js';
+import { alertDialog, button, confirmDialog, openSheet, promptDialog, seg, stamp, switchControl, toast } from '../components.js';
 import { catIcon, compactYuan } from '../fmt.js';
 import { formatDecimal, formatMoney, formatSigned, parseAmount } from '../../core/money.js';
 import { dayDiff, formatDateZh, isISODate, relativeDaysZh, todayISO } from '../../core/date.js';
@@ -213,34 +213,9 @@ export function openEntry(ctx, { id = null, date = null } = {}) {
     return { kind: 'last', text: `${shown}${last.fx ? `（${last.fx.currency}）` : ''}${far}`, reuse: !last.fx && !row.fxOn, fen: last.fen };
   }
 
-  /** 合计数字滚动到新值（约 0.3 秒，先快后慢）；系统设了「减弱动态效果」时直接跳到结果。 */
+  /** 合计：直接显示新值（不做滚动动画，输入时更干净）。 */
   function rollMoney(el, fen) {
-    cancelAnimationFrame(el._roll);
-    clearTimeout(el._rollEnd);
-    if (fen == null) {
-      el._fen = null;
-      el.textContent = '—';
-      return;
-    }
-    const from = el._fen;
-    el._fen = fen;
-    if (from == null || from === fen || matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      el.textContent = formatMoney(fen, st.unit);
-      return;
-    }
-    const t0 = performance.now();
-    const step = (now) => {
-      const p = Math.min(1, (now - t0) / 320);
-      const e = 1 - (1 - p) ** 3;
-      el.textContent = formatMoney(p < 1 ? Math.round(from + (fen - from) * e) : fen, st.unit);
-      if (p < 1) el._roll = requestAnimationFrame(step);
-    };
-    el._roll = requestAnimationFrame(step);
-    // 后台或省电时动画帧可能暂停：到点直接写上最终结果
-    el._rollEnd = setTimeout(() => {
-      cancelAnimationFrame(el._roll);
-      el.textContent = formatMoney(fen, st.unit);
-    }, 420);
+    el.textContent = fen == null ? '—' : formatMoney(fen, st.unit);
   }
 
   /* ------------------------------ 刷新（不重建输入框，避免丢焦点） ------------------------------ */
@@ -281,7 +256,8 @@ export function openEntry(ctx, { id = null, date = null } = {}) {
     }
     // 一键沿用：用过之后卡片留在原处变成「已沿用」，不突然消失——否则下面的内容会整体往上跳
     const canReuse = reusable >= 2;
-    ui.reuse.hidden = !canReuse && !st.reusedCount;
+    // 一键沿用：用过、或点了 × 之后整张卡片收起来，不再一直占着顶部
+    ui.reuseBox.hidden = !!st.hideReuse || (!canReuse && !st.reusedCount);
     ui.reuse.disabled = !canReuse;
     ui.reuse.classList.toggle('done', !canReuse);
     ui.reuseTitle.textContent = canReuse ? '一键沿用上次金额' : `已沿用 ${st.reusedCount} 项上次金额`;
@@ -298,7 +274,7 @@ export function openEntry(ctx, { id = null, date = null } = {}) {
     ui.bar.style.width = `${need ? Math.min(100, (ev.count / need) * 100) : 0}%`;
 
     updateDup();
-    ui.future.hidden = !(isISODate(st.date) && st.date > todayISO());
+    ui.future.hidden = !!st.hideFuture || !(isISODate(st.date) && st.date > todayISO());
     showDate();
 
     const dup = dupRecord();
@@ -335,14 +311,21 @@ export function openEntry(ctx, { id = null, date = null } = {}) {
   function updateDup() {
     const other = dupRecord();
     ui.dup.replaceChildren();
-    ui.dup.hidden = !other;
-    if (!other) return;
+    // 一行小提示，可以点 × 关掉（底栏仍会说明为什么不能保存）
+    ui.dup.hidden = !other || st.hideDup === st.date;
+    if (ui.dup.hidden) return;
     const total = recordedTotal(other);
     ui.dup.appendChild(
-      noteBox(
-        'warn',
-        [h('b', {}, `${formatDateZh(st.date, { year: false })}已有记录`), h('div', { class: 'small' }, `${other.complete ? '总资产' : '合计'} ${formatMoney(total, st.unit)}${other.complete ? '' : '（未填完）'}`)],
-        [button('打开修改', () => loadOther(other), { sm: true, kind: 'secondary' })],
+      h(
+        'div',
+        { class: 'notice' },
+        icon('warn', { size: 15 }),
+        h('span', { class: 'nt' }, `${formatDateZh(st.date, { year: false })}已有记录`, h('span', { class: 'ns' }, ` · ${formatMoney(total, st.unit)}`)),
+        h('button', { type: 'button', class: 'notice-act', onClick: () => loadOther(other) }, '打开修改'),
+        h('button', { type: 'button', class: 'notice-x', 'aria-label': '关闭这条提示', onClick: () => {
+          st.hideDup = st.date;
+          updateDup();
+        } }, icon('x', { size: 15 })),
       ),
     );
   }
@@ -384,10 +367,19 @@ export function openEntry(ctx, { id = null, date = null } = {}) {
       done.push({ cid: c.id, text: r.text });
     }
     if (!done.length) return;
-    if (padCid) pad.start(st.rows.get(padCid)?.text ?? '');
+    if (padCid) (pad.start(st.rows.get(padCid)?.text ?? ''), showCalc(pad.expr));
     st.dirty = true;
     st.reusedCount = done.length;
     fx.done();
+    // 沿用完，卡片停一下让你看到「已沿用 N 项」，然后自己收起来
+    setTimeout(() => {
+      ui.reuseBox.classList.add('gone');
+      setTimeout(() => {
+        st.hideReuse = true;
+        ui.reuseBox.hidden = true;
+        ui.reuseBox.classList.remove('gone');
+      }, 280);
+    }, 900);
     recalc();
     undoToast?.remove();
     undoToast = toast(`已沿用 ${done.length} 项，有变动的请改一下`, {
@@ -401,6 +393,8 @@ export function openEntry(ctx, { id = null, date = null } = {}) {
           const input = refs.get(cid)?.input;
           if (input) input.value = '';
         }
+        st.hideReuse = false; // 撤销后「一键沿用」重新出现
+        st.reusedCount = 0;
         recalc();
       },
     });
@@ -496,7 +490,7 @@ export function openEntry(ctx, { id = null, date = null } = {}) {
       if (!last) return;
       r.text = showAmount(signed(last.fen, cat.id), st.unit);
       input.value = r.text;
-      if (padCid === cat.id) pad.start(r.text);
+      if (padCid === cat.id) (pad.start(r.text), showCalc(pad.expr));
       touch();
     });
     const more = keepFocus(h('button', { type: 'button', class: 'more', 'aria-label': `${cat.name}：更多`, onClick: () => openOptions(cat) }, icon('more', { size: 20 })));
@@ -622,7 +616,10 @@ export function openEntry(ctx, { id = null, date = null } = {}) {
       rebuild();
     }, { label: '输入单位' });
 
-    ui.future = h('div', { class: 'mini', hidden: true }, icon('warn', { size: 14 }), '日期在今天之后，请确认没有选错');
+    ui.future = h('div', { class: 'notice', hidden: true }, icon('warn', { size: 15 }), h('span', { class: 'nt' }, '日期在今天之后，请确认没选错'), h('button', { type: 'button', class: 'notice-x', 'aria-label': '关闭这条提示', onClick: () => {
+      st.hideFuture = true;
+      ui.future.hidden = true;
+    } }, icon('x', { size: 15 })));
     ui.dup = h('div', { class: 'notes', hidden: true });
 
     // 资产一张卡片、负债一张卡片，账户之间用细线分隔，紧凑好扫。
@@ -668,7 +665,7 @@ export function openEntry(ctx, { id = null, date = null } = {}) {
         } }, icon('trash', { size: 16 }), '删除这条记录')
       : null;
 
-    return h('div', { class: 'entry' }, h('div', { class: 'entry-bar' }, chip, unitSeg), ui.future, ui.dup, ui.reuse, h('div', { class: 'acct-list' }, ...cards), h('div', { class: 'entry-extra' }, addNote, noteWrap), del);
+    return h('div', { class: 'entry' }, h('div', { class: 'entry-bar' }, chip, unitSeg), ui.future, ui.dup, ui.reuseBox, h('div', { class: 'acct-list' }, ...cards), h('div', { class: 'entry-extra' }, addNote, noteWrap), del);
   }
 
   /* ------------------------------ 金额键盘 ------------------------------ */
@@ -696,6 +693,7 @@ export function openEntry(ctx, { id = null, date = null } = {}) {
     const ev = evalExpr(expr, st.unit);
     r.text = ev.empty ? '' : ev.error || !ev.hasOp ? expr.replace(/−/g, '-') : showAmount(ev.fen, st.unit);
     if (ref) ref.input.value = prettyExpr(expr);
+    showCalc(expr);
     st.dirty = true;
     recalc();
     // 有加减时，名字下面那行小字直接显示结果
@@ -705,6 +703,12 @@ export function openEntry(ctx, { id = null, date = null } = {}) {
       ref.sub.textContent = `= ${formatMoney(ev.fen, st.unit)}`;
       ref.reuse.hidden = true;
     }
+  }
+
+  function showCalc(expr) {
+    const ev = evalExpr(expr, st.unit);
+    const cat = store.state.categories.find((c) => c.id === padCid);
+    pad.show({ name: cat ? `${cat.name}${isDebt(cat) ? ' · 欠款' : ''}` : '', text: prettyExpr(expr), result: ev.hasOp && !ev.error ? formatMoney(ev.fen, st.unit) : '' });
   }
 
   /** 收起当前这一栏：算式换成结果，金额整理成带千分位的写法。 */
@@ -730,6 +734,7 @@ export function openEntry(ctx, { id = null, date = null } = {}) {
     const ref = refs.get(cid);
     ref?.amt.classList.add('active');
     pad.start(st.rows.get(cid)?.text ?? '');
+    showCalc(pad.expr);
     pad.setNext(!!nextCid(cid));
     sheet.el.classList.add('kp-open');
     // 键盘升起后可视区变小：把正在填的这一行刚好露出来
@@ -807,7 +812,11 @@ export function openEntry(ctx, { id = null, date = null } = {}) {
   const foot = h('div', { class: 'entry-foot' }, h('div', { class: 'fill-bar', 'aria-hidden': 'true' }, ui.bar), h('div', { class: 'sum', 'aria-live': 'polite' }, h('div', { class: 'cap' }, ui.lbl, ui.stamp, ui.progress), ui.big), ui.save, ui.msg, kbBar);
   ui.reuseSub = h('span', { class: 'rs' });
   ui.reuseTitle = h('span', { class: 'rt' }, '一键沿用上次金额');
-  ui.reuse = h('button', { type: 'button', class: 'reuse-all', hidden: true, onClick: reuseAll }, h('span', { class: 'ra-ico' }, icon('repeat', { size: 18 })), h('span', { class: 'grow' }, ui.reuseTitle, ui.reuseSub), icon('chevronR', { size: 18 }));
+  ui.reuse = h('button', { type: 'button', class: 'reuse-all', onClick: reuseAll }, h('span', { class: 'ra-ico' }, icon('repeat', { size: 18 })), h('span', { class: 'grow' }, ui.reuseTitle, ui.reuseSub));
+  ui.reuseBox = h('div', { class: 'reuse-box', hidden: true }, ui.reuse, h('button', { type: 'button', class: 'notice-x reuse-x', 'aria-label': '收起「一键沿用」', onClick: () => {
+    st.hideReuse = true;
+    ui.reuseBox.hidden = true;
+  } }, icon('x', { size: 16 })));
 
   const sheet = openSheet({
     title: st.id ? '修改记录' : '记一笔',

@@ -2,6 +2,7 @@
 import { h, icon } from '../dom.js';
 import { button, emptyState, noteBox, seg } from '../components.js';
 import { accountRows, coverCard } from '../snapshotView.js';
+import { animateHero } from '../fmt.js';
 import { goalBlock, kpiRow } from '../insights.js';
 import { compareSnapshots, findByDate, latestComplete, latestOverall, missingIds, previousCompleteOf, recordedTotal } from '../../core/ledger.js';
 import { checkSnapshot } from '../../core/anomalies.js';
@@ -28,6 +29,7 @@ const sectionHead = (title, right = null) => h('div', { class: 'sect-head' }, h(
 export function buildHome(ctx) {
   const { store, nav } = ctx;
   const root = h('div', {});
+  let welcomed = false; // 每次进入首页，总额只播一次欢迎动画；之后数据刷新直接显示
 
   const draw = () => {
     const { snapshots, categories, settings } = store.state;
@@ -98,6 +100,11 @@ export function buildHome(ctx) {
         if (!e.target.closest('button')) nav.openDetail(comp.id);
       });
       frag.push(cover);
+      if (!welcomed) {
+        welcomed = true;
+        cover.classList.add('welcome');
+        if (!settings.hideAmounts) animateHero(cover.querySelector('.hero'), recordedTotal(comp), unit);
+      }
     } else {
       frag.push(coverCard({ label: '暂时算不出总资产', dateText, fen: null, complete: false, unit, changeNote: '补全各账户金额后显示总资产' }));
     }

@@ -1047,8 +1047,8 @@ html.kb-open .toasts { bottom: calc(var(--kb, 0px) + 64px); }
 /* ---------- 自带金额键盘：带加减，右下角「完成」 ---------- */
 .entry-sheet.kp-open .sheet-foot { padding: 4px 8px calc(8px + env(safe-area-inset-bottom, 0px)); gap: 4px; background: color-mix(in srgb, var(--sunk) 70%, var(--surface)); }
 .entry-sheet.kp-open .kb-bar { padding: 0 4px 0 10px; }
-.entry-sheet.kp-open .amount-pad { display: block; animation: pad-in 0.32s cubic-bezier(0.22, 1, 0.36, 1) backwards; }
-@keyframes pad-in { from { transform: translateY(24px); opacity: 0; } }
+.entry-sheet.kp-open .amount-pad { display: block; animation: pad-in 0.16s ease-out backwards; }
+@keyframes pad-in { from { opacity: 0; } }
 .pad-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
 .pk {
   position: relative; height: 50px; border: 0; border-radius: 13px; padding: 0;
@@ -1056,9 +1056,9 @@ html.kb-open .toasts { bottom: calc(var(--kb, 0px) + 64px); }
   font: 400 25px/1 var(--font-display); letter-spacing: 0;
   box-shadow: 0 1px 0 color-mix(in srgb, var(--ink) 12%, transparent), inset 0 0.5px 0 rgba(255, 255, 255, 0.6);
   -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; touch-action: manipulation;
-  transition: transform 0.08s ease, background-color 0.12s ease;
+  transition: background-color 0.15s ease;
 }
-.pk.down { transform: scale(0.95); background: var(--sunk); }
+.pk.down { background: var(--sunk); transition-duration: 0s; }
 .pk.fn { background: color-mix(in srgb, var(--sunk) 55%, var(--surface)); color: var(--ink-2); }
 .pk.op { font: 300 28px/1 var(--font-ui); color: var(--gold-text); background: color-mix(in srgb, var(--gold) 13%, var(--surface)); }
 .pk.op.down { background: color-mix(in srgb, var(--gold) 24%, var(--surface)); }
@@ -1067,7 +1067,7 @@ html.kb-open .toasts { bottom: calc(var(--kb, 0px) + 64px); }
 .pk-next { display: inline-flex; align-items: center; gap: 2px; }
 .pk:disabled { opacity: 0.4; }
 .pk.done { background: var(--brand); color: var(--brand-ink); font: 600 16px/1 var(--font-ui); letter-spacing: 0.2em; padding-left: 0.2em; box-shadow: 0 6px 16px -8px rgba(20, 14, 4, 0.6), inset 0 0 0 1px var(--gold-line); }
-.pk.done.down { filter: brightness(1.15); }
+.pk.done.down { filter: brightness(1.12); }
 @media (max-height: 640px) { .pk { height: 44px; } }
 
 /* 正在用金额键盘填的那一栏：金色底线 + 闪烁的光标 */
@@ -1081,15 +1081,42 @@ html.kb-open .toasts { bottom: calc(var(--kb, 0px) + 64px); }
 @media (prefers-reduced-motion: reduce) { .amt.active::after { animation: none; } .entry-sheet.kp-open .amount-pad { animation: none; } }
 
 /* ---------- 按压手感：按下微缩、松手带一点回弹 ---------- */
-:is(.btn, .icon-btn, .head-btn, .kb-save, .link-btn, .seg button, .tab, .reuse, .more, .m-del, .grp-name) { transition: transform 0.32s cubic-bezier(0.2, 1.5, 0.4, 1), background-color 0.18s ease, filter 0.18s ease, color 0.18s ease; }
-:is(.icon-btn, .head-btn, .kb-save, .link-btn, .seg button, .reuse, .more, .m-del):active { transform: scale(0.94); transition-duration: 0.08s; }
+:is(.btn, .icon-btn, .head-btn, .kb-save, .link-btn, .seg button, .tab, .reuse, .more, .m-del, .grp-name) { transition: transform 0.22s cubic-bezier(0.25, 1, 0.5, 1), background-color 0.18s ease, filter 0.18s ease, color 0.18s ease; }
+:is(.icon-btn, .head-btn, .kb-save, .link-btn, .seg button, .reuse, .more, .m-del):active { transform: scale(0.96); transition-duration: 0.08s; }
 .tab:active svg { transform: scale(0.88); transition: transform 0.08s; }
-.tab svg { transition: transform 0.32s cubic-bezier(0.2, 1.5, 0.4, 1); }
-.seg button[aria-pressed="true"] { animation: seg-in 0.34s cubic-bezier(0.2, 1.4, 0.4, 1); }
-@keyframes seg-in { from { transform: scale(0.9); } }
-/* 金额键盘：数字键按下时一圈淡金色的光 */
-.pk::before { content: ""; position: absolute; inset: 0; border-radius: inherit; background: radial-gradient(circle at 50% 55%, color-mix(in srgb, var(--gold) 26%, transparent), transparent 70%); opacity: 0; transition: opacity 0.35s ease; pointer-events: none; }
-.pk.down::before { opacity: 1; transition-duration: 0.05s; }
-.pk.done::before { display: none; }
+.tab svg { transition: transform 0.22s cubic-bezier(0.25, 1, 0.5, 1); }
 .entry-foot .big, .kb-bar .ks { font-variant-numeric: tabular-nums; }
-@media (prefers-reduced-motion: reduce) { .seg button[aria-pressed="true"] { animation: none; } }
+
+/* 金额键盘顶上一行：账户 · 算式 · = 结果 */
+.pad-calc { display: flex; align-items: baseline; gap: 10px; min-height: 34px; padding: 4px 8px 6px 10px; }
+.pc-name { flex: none; max-width: 38%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; letter-spacing: 0.06em; color: var(--ink-3); }
+.pc-main { flex: 1; min-width: 0; display: flex; justify-content: flex-end; align-items: baseline; gap: 8px; overflow: hidden; white-space: nowrap; }
+.pc-expr { flex: none; font: 400 18px/1.2 var(--font-display); color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.pc-expr.ph { font: 400 13px/1.2 var(--font-ui); letter-spacing: 0.1em; color: color-mix(in srgb, var(--ink-3) 70%, transparent); }
+.pc-res { flex: none; font: 600 19px/1.2 var(--font-display); color: var(--gold-text); font-variant-numeric: tabular-nums; }
+
+/* ---------- 首页欢迎：封面浮现，总额从 0 滚到实际数，落定后一道金色光泽扫过 ---------- */
+.cover.welcome { animation: cover-in 0.9s cubic-bezier(0.16, 1, 0.3, 1) backwards; }
+@keyframes cover-in { from { opacity: 0; transform: translate3d(0, 18px, 0) scale(0.97); filter: blur(4px); } }
+.cover .hero.counting .int, .cover .hero.counting .dec { font-variant-numeric: lining-nums tabular-nums; }
+.cover .hero.shine {
+  background-image: linear-gradient(105deg, #e9dcc0 0%, #fbf4e4 38%, #ffffff 48%, #f3dfae 54%, #e9dcc0 64%, #e9dcc0 100%);
+  background-size: 260% 100%; background-position: 100% 0;
+  animation: hero-shine 1.3s cubic-bezier(0.4, 0, 0.2, 1) 0.1s both;
+}
+@keyframes hero-shine { from { background-position: 100% 0; } to { background-position: 0% 0; } }
+@media (prefers-reduced-motion: reduce) { .cover.welcome, .cover .hero.shine { animation: none; } }
+
+/* ---------- 记一笔顶部的小提示：一行、可关闭，不再占一大块 ---------- */
+.notice { display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 4px 4px 4px 12px; border-radius: 12px; background: var(--amber-bg); border: 1px solid color-mix(in srgb, var(--amber-line) 70%, transparent); color: var(--amber); font-size: 13px; }
+.notice[hidden] { display: none; }
+.notice > svg { flex: none; }
+.notice .nt { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); letter-spacing: 0.02em; }
+.notice .ns { color: var(--ink-3); }
+.notice-act { flex: none; height: 30px; padding: 0 12px; border: 1px solid var(--amber-line); border-radius: 99px; background: var(--surface); color: var(--ink); font-size: 12.5px; letter-spacing: 0.06em; }
+.notice-x { flex: none; display: grid; place-items: center; width: 32px; height: 32px; padding: 0; border: 0; border-radius: 50%; background: none; color: var(--ink-3); }
+.notice-x:active { background: color-mix(in srgb, var(--ink) 8%, transparent); }
+.reuse-box { position: relative; transition: opacity 0.25s ease, transform 0.25s ease; }
+.reuse-box.gone { opacity: 0; transform: translateY(-6px); }
+.reuse-box .reuse-all { width: 100%; padding-right: 48px; }
+.reuse-x { position: absolute; top: 50%; right: 8px; margin-top: -16px; }

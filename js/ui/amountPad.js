@@ -98,7 +98,12 @@ export function amountPad({ decimals, onChange, onNext, onDone }) {
     key('7', '7'), key('8', '8'), key('9', '9'), key('+', '+', 'op', '加'),
     key('.', '.', 'pt', '小数点'), key('0', '0'), next, done,
   );
-  const el = h('div', { class: 'amount-pad', role: 'group', 'aria-label': '金额键盘' }, grid);
+  // 键盘顶上一行：正在填的账户 · 算式 · = 结果（有加减时结果用金色突出）
+  const calcName = h('span', { class: 'pc-name' });
+  const calcExpr = h('span', { class: 'pc-expr' });
+  const calcRes = h('span', { class: 'pc-res', hidden: true });
+  const calc = h('div', { class: 'pad-calc', 'aria-live': 'polite' }, calcName, h('span', { class: 'pc-main' }, calcExpr, calcRes));
+  const el = h('div', { class: 'amount-pad', role: 'group', 'aria-label': '金额键盘' }, calc, grid);
 
   let holdT = null;
   grid.addEventListener('pointerdown', (e) => {
@@ -152,6 +157,14 @@ export function amountPad({ decimals, onChange, onNext, onDone }) {
     },
     setNext(ok) {
       next.disabled = !ok;
+    },
+    /** 更新顶上那一行：name 账户名，text 算式（已排好版），result 有加减时的结果文本。 */
+    show({ name = '', text = '', result = '' } = {}) {
+      calcName.textContent = name;
+      calcExpr.textContent = text || '输入金额';
+      calcExpr.classList.toggle('ph', !text);
+      calcRes.hidden = !result;
+      calcRes.textContent = result ? `= ${result}` : '';
     },
     /** 电脑上用实体键盘也能输入。返回 true 表示已处理。 */
     key(e) {
