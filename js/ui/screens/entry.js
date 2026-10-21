@@ -3,14 +3,14 @@
 // 只有点金额栏才会弹出键盘（上下滑动时碰到行不会误触）；同类账户的添加、外币等放进每行的「⋯」。
 import { h, icon } from '../dom.js';
 import { alertDialog, button, confirmDialog, noteBox, openSheet, promptDialog, seg, stamp, switchControl, toast } from '../components.js';
-import { catIcon } from '../fmt.js';
+import { catIcon, compactYuan } from '../fmt.js';
 import { formatDecimal, formatMoney, formatSigned, parseAmount } from '../../core/money.js';
 import { dayDiff, formatDateZh, isISODate, relativeDaysZh, todayISO } from '../../core/date.js';
 import { cleanName, enabledCategories, groupKey, isDebt, nameKey, sortedCategories, suggestSiblingName } from '../../core/model.js';
 import { findByDate, hasValue, isComplete, recordedTotal, sortDesc } from '../../core/ledger.js';
 import { displayCategories } from '../snapshotView.js';
 import { addDebtAccount, renameCategory, toggleDebt } from '../categoryActions.js';
-import { confirmDeleteCategory, openCategoryEditor, openReorderSheet } from '../categoryEditor.js';
+import { confirmDeleteCategory, dragHandle, makeSortable, openCategoryEditor } from '../categoryEditor.js';
 
 const newRow = () => ({ text: '', fxOn: false, cur: '', orig: '' });
 /** 输入框里显示的金额：带千分位（218,440.72），parseAmount 能原样读回。 */
@@ -36,7 +36,7 @@ const keepFocus = (el) => {
 export function openEntry(ctx, { id = null, date = null } = {}) {
   const { store, nav } = ctx;
   const initial = id ? store.state.snapshots.find((s) => s.id === id) : null;
-  const st = { id: initial?.id ?? null, date: initial?.date ?? date ?? todayISO(), unit: store.state.settings.unit, rows: new Map(), note: initial?.note ?? '', dirty: false };
+  const st = { manage: false, id: initial?.id ?? null, date: initial?.date ?? date ?? todayISO(), unit: store.state.settings.unit, rows: new Map(), note: initial?.note ?? '', dirty: false };
   let refs = new Map();
   let ui = {};
 
@@ -143,7 +143,8 @@ export function openEntry(ctx, { id = null, date = null } = {}) {
     }
     if (!last) return { kind: '', text: debt ? '填欠款金额，正数即可' : '' };
     const far = dayDiff(last.date, st.date) > 45 ? ` · ${formatDateZh(last.date, { year: last.date.slice(0, 4) !== st.date.slice(0, 4) })}` : '';
-    const shown = debt ? `上次欠 ${formatMoney(-last.fen, st.unit)}` : `上次 ${formatMoney(last.fen, st.unit)}`;
+    // 一行放得下：上次的数用简短写法（2.55万），点一下填入的仍是精确金额
+    const shown = debt ? `上次欠 ${compactYuan(-last.fen)}` : `上次 ${compactYuan(last.fen)}`;
     return { kind: 'last', text: `${shown}${last.fx ? `（${last.fx.currency}）` : ''}${far}`, reuse: !last.fx && !row.fxOn, fen: last.fen };
   }
 
@@ -172,11 +173,12 @@ export function openEntry(ctx, { id = null, date = null } = {}) {
       ref.amt.classList.toggle('invalid', bad);
       ref.amt.classList.toggle('filled', row.text.trim() !== '');
       const s = subOf(p, row, lastOf(cat.id, sorted), cat);
-      // 名字下面一行小字（上次的数 / 较上次变化 / 错误）；能沿用时金额栏左边出现「沿用」
+      // 名字下面一行小字（较上次变化 / 错误）；能沿用时这行小字本身就是按钮：「上次 ¥x ↺」，点一下填入
       ref.sub.className = `sub${s.kind ? ` ${s.kind}` : ''}`;
-      ref.sub.hidden = !s.text;
+      ref.sub.hidden = !s.text || !!s.reuse;
       ref.sub.textContent = s.text;
       ref.reuse.hidden = !s.reuse;
+      ref.reuseText.textContent = s.reuse ? s.text : '';
       ref.reuse.setAttribute('aria-label', s.reuse ? `沿用${cat.name}上次的金额 ${formatMoney(s.fen, st.unit)}` : '');
       ref.fx.hidden = !row.fxOn;
       ref.more.classList.toggle('on', row.fxOn);
@@ -417,7 +419,8 @@ export function openEntry(ctx, { id = null, date = null } = {}) {
     const amt = h('label', { class: ['amt', debt && 'debt'] }, h('span', { class: 'pre', 'aria-hidden': 'true' }, debt ? '欠 ¥' : '¥'), input, st.unit === 'wan' ? h('span', { class: 'sfx' }, '万') : null);
 
     const sub = h('div', { class: 'sub', id: `acct-sub-${idx}`, hidden: true });
-    const reuse = keepFocus(h('button', { type: 'button', class: 'reuse', hidden: true, 'aria-label': `${cat.name}：沿用上次的金额` }, icon('repeat', { size: 13, stroke: 2 }), '沿用'));
+    const reuseText = h('span', {});
+    const reuse = keepFocus(h('button', { type: 'button', class: 'reuse', hidden: true, 'aria-label': `${cat.name}：沿用上次的金额` }, reuseText, icon('repeat', { size: 12, stroke: 2.2 })));
     reuse.addEventListener('click', () => {
       const last = reusableOf(cat);
       if (!last) return;
@@ -439,18 +442,97 @@ export function openEntry(ctx, { id = null, date = null } = {}) {
     });
     const fx = h('div', { class: 'fx', hidden: !r.fxOn }, cur, orig);
 
+    // 一行：图标 · 名称（下面一行小字）· 金额栏 · ⋯ ；只有外币账户展开时才多一行
     const row = h(
       'div',
-      { class: 'acct' },
-      h('div', { class: 'acct-top' }, catIcon(cat, store.state.categories, { size: 34 }), h('div', { class: 'acct-name' }, h('div', { class: 'l1' }, h('span', { class: 'nm' }, cat.name), debt ? h('span', { class: 'tag debt' }, '负债') : null, cat.enabled ? null : h('span', { class: 'tag' }, '已停用')), sub), more),
-      h('div', { class: 'acct-bottom' }, reuse, amt),
+      { class: 'acct line' },
+      catIcon(cat, store.state.categories, { size: 32 }),
+      h('div', { class: 'acct-name' }, h('div', { class: 'l1' }, h('span', { class: 'nm' }, cat.name)), sub, reuse),
+      amt,
+      more,
       fx,
     );
-    refs.set(cat.id, { input, amt, sub, reuse, fx, cur, more });
+    refs.set(cat.id, { input, amt, sub, reuse, reuseText, fx, cur, more });
     return row;
   }
 
+  /**
+   * 管理账户（就在记一笔里，不用跑去设置）：每行可直接改名、点图标换图标 / 停用、点垃圾桶删除、按住 ≡ 拖动排序；
+   * 底部直接新增资产或负债账户。点右上角「完成」回到记账。
+   */
+  let addKind = 'asset';
+  function buildManage() {
+    refs = new Map();
+    const cats = sortedCategories(store.state.categories);
+    const list = h('div', { class: 'list sort-list manage-list' });
+    for (const c of cats) {
+      const name = h('input', { type: 'text', class: 'm-name', value: c.name, maxlength: 20, 'aria-label': `「${c.name}」的名称`, enterkeyhint: 'done' });
+      name.addEventListener('keydown', (e) => e.key === 'Enter' && name.blur());
+      name.addEventListener('change', async () => {
+        const n = cleanName(name.value);
+        const now = store.state.categories.find((x) => x.id === c.id);
+        if (!now) return;
+        if (!n || n === now.name) return void (name.value = now.name);
+        const r = await store.saveCategories(sortedCategories(store.state.categories).map((x) => (x.id === c.id ? { ...x, name: n } : x)));
+        if (!r.ok) {
+          toast(r.message);
+          name.value = now.name;
+        } else toast(`已改名为「${n}」`);
+      });
+      const iconBtn = h('button', { type: 'button', class: 'm-icon', 'aria-label': `「${c.name}」：换图标、负债、停用` }, catIcon(c, store.state.categories, { size: 34 }));
+      iconBtn.addEventListener('click', () => openCategoryEditor(store, c.id, { onChange: rebuild }));
+      const delBtn = h('button', { type: 'button', class: 'm-del', 'aria-label': `删除「${c.name}」` }, icon('trash', { size: 18 }));
+      delBtn.addEventListener('click', async () => {
+        if (await confirmDeleteCategory(store, c.id)) {
+          st.rows.delete(c.id);
+          rebuild();
+        }
+      });
+      list.appendChild(h('div', { class: ['m-row', !c.enabled && 'off', isDebt(c) && 'is-debt'], 'data-id': c.id }, iconBtn, h('div', { class: 'm-main' }, name, h('div', { class: 'm-tags' }, isDebt(c) ? h('span', { class: 'tag debt' }, '负债') : null, c.enabled ? null : h('span', { class: 'tag' }, '已停用'))), delBtn, dragHandle(c.name)));
+    }
+    makeSortable(list, async (ids) => {
+      const byId = new Map(store.state.categories.map((x) => [x.id, x]));
+      const r = await store.saveCategories(ids.map((x) => byId.get(x)));
+      if (!r.ok) {
+        toast(r.message);
+        rebuild();
+      }
+    });
+    const newName = h('input', { type: 'text', placeholder: addKind === 'debt' ? '新负债，如「信用卡」「花呗」' : '新账户，如「基金」「现金」', maxlength: 20, 'aria-label': '新账户名称', enterkeyhint: 'done' });
+    const kind = seg([{ value: 'asset', label: '资产' }, { value: 'debt', label: '负债' }], addKind, (v) => {
+      addKind = v;
+      newName.placeholder = v === 'debt' ? '新负债，如「信用卡」「花呗」' : '新账户，如「基金」「现金」';
+    }, { label: '新账户类型' });
+    const add = async () => {
+      const r = await store.addCategory(newName.value, { debt: addKind === 'debt' });
+      if (!r.ok) return toast(r.message);
+      toast(`已添加「${r.category.name}」`);
+      rebuild();
+    };
+    newName.addEventListener('keydown', (e) => e.key === 'Enter' && add());
+    return h(
+      'div',
+      { class: 'entry manage' },
+      h('p', { class: 'hint manage-hint' }, '直接点名字改名 · 点图标换图标或停用 · 按住 ≡ 拖动排序'),
+      list,
+      h('div', { class: 'add-cat card' }, h('div', { class: 'row between' }, h('span', { class: 'label' }, '新增账户'), kind), h('div', { class: 'row' }, h('div', { class: 'grow' }, newName), button('添加', add, { kind: 'secondary', iconName: 'plus' }))),
+      button('完成，回到记账', () => setManage(false), { block: true }),
+    );
+  }
+
+  function setManage(on) {
+    if (document.activeElement?.matches?.('input')) document.activeElement.blur();
+    st.manage = on;
+    ui.manageBtn.textContent = on ? '完成' : '管理';
+    ui.manageBtn.classList.toggle('on', on);
+    sheet.el.classList.toggle('managing', on);
+    sheet.setTitle(on ? '管理账户' : st.id ? '修改记录' : '记一笔');
+    sheet.body.scrollTop = 0;
+    rebuild();
+  }
+
   function buildForm() {
+    if (st.manage) return buildManage();
     refs = new Map();
     const cats = visibleCats();
     for (const c of cats) if (!st.rows.has(c.id)) st.rows.set(c.id, newRow());
@@ -481,11 +563,12 @@ export function openEntry(ctx, { id = null, date = null } = {}) {
     ui.future = h('div', { class: 'mini', hidden: true }, icon('warn', { size: 14 }), '日期在今天之后，请确认没有选错');
     ui.dup = h('div', { class: 'notes', hidden: true });
 
-    const card = (g) => h('div', { class: 'acct-card' }, ...g.map((c) => buildRow(c, { idx: flat.indexOf(c), n: flat.length })));
+    // 资产一张卡片、负债一张卡片，账户之间用细线分隔，紧凑好扫
+    const card = (gs) => h('div', { class: 'acct-card' }, ...gs.flat().map((c) => buildRow(c, { idx: flat.indexOf(c), n: flat.length })));
     const assetGroups = groups.filter((g) => !isDebt(g[0]));
     const debtGroups = groups.filter((g) => isDebt(g[0]));
-    const cards = [...assetGroups.map(card), ...(debtGroups.length ? [h('div', { class: 'list-label' }, '负债'), ...debtGroups.map(card)] : [])];
-    const reorder = h('button', { type: 'button', class: 'link-btn', onClick: () => openReorderSheet(store, { onDone: rebuild }) }, icon('grip', { size: 15, stroke: 2 }), '调整账户顺序');
+    const cards = [...(assetGroups.length ? [card(assetGroups)] : []), ...(debtGroups.length ? [h('div', { class: 'list-label' }, '负债'), card(debtGroups)] : [])];
+    const reorder = h('button', { type: 'button', class: 'link-btn', onClick: () => setManage(true) }, icon('sliders', { size: 15, stroke: 2 }), '管理账户（改名 · 排序 · 删除）');
     const addDebt = h('button', { type: 'button', class: 'link-btn', onClick: async () => {
       if (await addDebtAccount(store)) rebuild();
     } }, icon('plus', { size: 14, stroke: 2.2 }), debtGroups.length ? '再添加负债账户' : '添加负债账户（信用卡、花呗、贷款）');
@@ -569,6 +652,9 @@ export function openEntry(ctx, { id = null, date = null } = {}) {
     footer: foot,
     beforeClose: async () => !st.dirty || confirmDialog({ title: '放弃修改？', message: '你填写的内容还没有保存。', confirmText: '放弃', cancelText: '继续编辑', danger: true }),
   });
+  ui.manageBtn = h('button', { type: 'button', class: 'head-btn', onClick: () => setManage(!st.manage) }, '管理');
+  const head = sheet.el.querySelector('.sheet-head');
+  if (!head.querySelector('.head-btn')) head.insertBefore(ui.manageBtn, head.lastElementChild); // 已开着的记一笔不会再叠一个按钮
   recalc();
   return sheet;
 }

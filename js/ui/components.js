@@ -337,8 +337,11 @@ function bindPop() {
  */
 export function openSheet({ title, body, footer, onClose, beforeClose, auto = false }) {
   bindPop();
+  // 同一个抽屉不重复叠开（例如连点两下「记一笔」或「⋯」）：最上面已经是同名抽屉就直接沿用它
+  const top = stack[stack.length - 1];
+  if (top && !top.closed && top.title === title && top.api) return top.api;
   const restoreFocus = typeof document !== 'undefined' ? document.activeElement : null;
-  const entry = { closed: false, onClose, beforeClose, restoreFocus };
+  const entry = { closed: false, onClose, beforeClose, restoreFocus, title };
   const request = async () => {
     if (entry.closed) return;
     const ok = (await beforeClose?.()) ?? true;
@@ -388,6 +391,7 @@ export function openSheet({ title, body, footer, onClose, beforeClose, auto = fa
       head.firstChild.textContent = t;
     },
   };
+  entry.api = api;
   return api;
 }
 
@@ -402,14 +406,24 @@ export function sheetCount() {
   return stack.length;
 }
 
+let openDialogDismiss = null;
 function openDialog(build) {
+  // 对话框互斥：再弹一个新的之前，先把还开着的那个当作「取消」关掉，屏幕上永远只有一个对话框
+  openDialogDismiss?.();
   return new Promise((resolve) => {
     const scrim = h('div', { class: 'scrim top' });
-    const dlg = build((v) => {
+    let settled = false;
+    const done = (v) => {
+      if (settled) return;
+      settled = true;
+      if (openDialogDismiss === dismiss) openDialogDismiss = null;
       scrim.remove();
       dlg.remove();
       resolve(v);
-    });
+    };
+    const dismiss = () => done(undefined);
+    const dlg = build(done);
+    openDialogDismiss = dismiss;
     topLayer().appendChild(scrim);
     topLayer().appendChild(dlg);
     const first = dlg.__focus ?? dlg.querySelector?.('button');
@@ -457,6 +471,8 @@ export function toast(message, { actionText, onAction, ms = 4200 } = {}) {
     toastRoot = h('div', { class: 'toasts', role: 'status', 'aria-live': 'polite' });
     document.body.appendChild(toastRoot);
   }
+  // 同一时间只显示一条提示：新的直接替换旧的，不会在屏幕上越叠越多
+  for (const old of [...toastRoot.children]) old.remove();
   const el = h('div', { class: 'toast' }, h('span', {}, message), actionText ? h('button', { type: 'button', onClick: () => { onAction?.(); el.remove(); } }, actionText) : null);
   toastRoot.appendChild(el);
   setTimeout(() => {

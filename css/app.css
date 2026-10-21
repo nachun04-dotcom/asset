@@ -955,3 +955,37 @@ html.kb-open .sheet-foot { padding-top: 10px; }
 .cat-ico svg.gl-brand { width: 50%; height: 50%; }
 .dialog p { white-space: pre-line; }
 .acc-foot { margin: 10px 4px 0; font-size: 12px; line-height: 1.6; color: var(--ink-3); letter-spacing: 0.02em; }
+
+/* ---------- 记一笔：每个账户只占一行 ---------- */
+.acct.line { display: grid; grid-template-columns: 32px minmax(0, 1fr) minmax(118px, 44%) 26px; align-items: center; column-gap: 10px; padding: 10px 0; }
+.acct.line > .cat-ico { --sz: 32px !important; }
+.acct.line .acct-name { min-width: 0; }
+.acct.line .nm { font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.acct.line .acct-name .l1 { flex-wrap: nowrap; min-width: 0; }
+.acct.line .sub { margin-top: 1px; font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.acct.line .reuse { display: inline-flex; align-items: center; gap: 4px; max-width: 100%; height: auto; margin: 1px 0 0; padding: 2px 0; border: 0; border-radius: 0; background: none; color: var(--brand-text); font-size: 11.5px; font-weight: 500; letter-spacing: 0.02em; }
+.acct.line .reuse > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.acct.line .amt { min-height: 40px; padding: 0 2px 4px; }
+.acct.line .amt input.money { font-size: 18px; min-height: 34px; }
+.acct.line .more { width: 26px; height: 36px; margin-right: -4px; }
+.acct.line .fx { grid-column: 1 / -1; padding-left: 42px; margin-top: 8px; }
+@media (max-width: 359px) { .acct.line { grid-template-columns: 28px minmax(0, 1fr) minmax(104px, 46%) 22px; column-gap: 8px; } .acct.line .fx { padding-left: 0; } }
+
+/* ---------- 记一笔：管理账户模式 ---------- */
+.head-btn { flex: none; min-height: 34px; padding: 0 14px; margin-right: 2px; border: 1px solid var(--rule); border-radius: 999px; background: none; color: var(--ink-2); font-size: 13.5px; letter-spacing: 0.08em; }
+.head-btn.on { background: var(--brand); border-color: transparent; color: var(--brand-ink); font-weight: 500; }
+.sheet.managing .sheet-foot { display: none; }
+.manage-hint { margin: -2px 2px 0; }
+.manage-list .m-row { display: flex; align-items: center; gap: 8px; min-height: 62px; padding: 6px 2px 6px 12px; background: var(--surface); }
+.manage-list .m-row + .m-row { border-top: 1px solid var(--hair); }
+.manage-list .m-row.off .m-name { color: var(--ink-3); }
+.m-icon { flex: none; padding: 0; border: 0; background: none; border-radius: 50%; }
+.m-main { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; }
+.m-name { flex: 1; min-width: 0; min-height: 40px; padding: 6px 8px; border: 1px solid transparent; border-radius: 10px; background: transparent; font-size: 16px; font-weight: 500; letter-spacing: 0.04em; }
+.m-name:focus { outline: none; background: var(--sunk); border-color: color-mix(in srgb, var(--gold) 55%, transparent); }
+.m-tags { display: flex; gap: 4px; flex: none; }
+.m-del { flex: none; display: grid; place-items: center; width: 40px; height: 44px; padding: 0; border: 0; border-radius: 12px; background: none; color: var(--ink-3); }
+.m-del:active { background: var(--bad-bg); color: var(--bad); }
+.add-cat.card { display: grid; gap: 10px; padding: 14px; }
+.acct.line .amt { min-width: 0; }
+.acct.line { grid-template-columns: 32px minmax(0, 1fr) minmax(112px, 40%) 26px; }

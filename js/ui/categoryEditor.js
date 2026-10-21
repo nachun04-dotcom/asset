@@ -76,7 +76,11 @@ export function makeSortable(list, onSort) {
     const from = items.findIndex((it) => it.el === el);
     if (from < 0) return;
     e.preventDefault();
-    handle.setPointerCapture?.(e.pointerId);
+    try {
+      handle.setPointerCapture?.(e.pointerId); // 个别浏览器在这里会抛错，失败也不影响拖动
+    } catch {
+      /* 忽略 */
+    }
     const b = el.getBoundingClientRect();
     g = { el, items, from, to: from, y0: e.clientY, h: b.height, mid0: b.top + b.height / 2, scroll0: scroller().scrollTop };
     list.classList.add('sorting');
@@ -91,7 +95,7 @@ export function makeSortable(list, onSort) {
   list.addEventListener('pointercancel', end);
 }
 
-const dragHandle = (name) => h('span', { class: 'drag-handle', role: 'button', 'aria-label': `按住拖动「${name}」调整顺序`, title: '按住拖动排序' }, icon('grip', { size: 20, stroke: 1.8 }));
+export const dragHandle = (name) => h('span', { class: 'drag-handle', role: 'button', 'aria-label': `按住拖动「${name}」调整顺序`, title: '按住拖动排序' }, icon('grip', { size: 20, stroke: 1.8 }));
 
 /** 拖拽排序抽屉：「记一笔」里用，也可从别处打开。 */
 export function openReorderSheet(store, { onDone } = {}) {
