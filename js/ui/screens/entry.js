@@ -10,7 +10,7 @@ import { cleanName, enabledCategories, groupKey, isDebt, nameKey, sortedCategori
 import { findByDate, hasValue, isComplete, recordedTotal, sortDesc } from '../../core/ledger.js';
 import { displayCategories } from '../snapshotView.js';
 import { addDebtAccount, renameCategory, toggleDebt } from '../categoryActions.js';
-import { confirmDeleteCategory, dragHandle, makeSortable, openCategoryEditor } from '../categoryEditor.js';
+import { confirmDeleteCategory, dragHandle, groupedSortable, openCategoryEditor } from '../categoryEditor.js';
 
 const newRow = () => ({ text: '', fxOn: false, cur: '', orig: '' });
 /** 输入框里显示的金额：带千分位（218,440.72），parseAmount 能原样读回。 */
@@ -463,9 +463,8 @@ export function openEntry(ctx, { id = null, date = null } = {}) {
   let addKind = 'asset';
   function buildManage() {
     refs = new Map();
-    const cats = sortedCategories(store.state.categories);
-    const list = h('div', { class: 'list sort-list manage-list' });
-    for (const c of cats) {
+    // 两层排序：大类整组移动，小账户只在自己的大类里调换
+    const list = groupedSortable(store, (c, child) => {
       const name = h('input', { type: 'text', class: 'm-name', value: c.name, maxlength: 20, 'aria-label': `「${c.name}」的名称`, enterkeyhint: 'done' });
       name.addEventListener('keydown', (e) => e.key === 'Enter' && name.blur());
       name.addEventListener('change', async () => {
@@ -479,7 +478,7 @@ export function openEntry(ctx, { id = null, date = null } = {}) {
           name.value = now.name;
         } else toast(`已改名为「${n}」`);
       });
-      const iconBtn = h('button', { type: 'button', class: 'm-icon', 'aria-label': `「${c.name}」：换图标、负债、停用` }, catIcon(c, store.state.categories, { size: 34 }));
+      const iconBtn = h('button', { type: 'button', class: 'm-icon', 'aria-label': `「${c.name}」：换图标、负债、停用` }, catIcon(c, store.state.categories, { size: child ? 30 : 34 }));
       iconBtn.addEventListener('click', () => openCategoryEditor(store, c.id, { onChange: rebuild }));
       const delBtn = h('button', { type: 'button', class: 'm-del', 'aria-label': `删除「${c.name}」` }, icon('trash', { size: 18 }));
       delBtn.addEventListener('click', async () => {
@@ -488,16 +487,8 @@ export function openEntry(ctx, { id = null, date = null } = {}) {
           rebuild();
         }
       });
-      list.appendChild(h('div', { class: ['m-row', !c.enabled && 'off', isDebt(c) && 'is-debt'], 'data-id': c.id }, iconBtn, h('div', { class: 'm-main' }, name, h('div', { class: 'm-tags' }, isDebt(c) ? h('span', { class: 'tag debt' }, '负债') : null, c.enabled ? null : h('span', { class: 'tag' }, '已停用'))), delBtn, dragHandle(c.name)));
-    }
-    makeSortable(list, async (ids) => {
-      const byId = new Map(store.state.categories.map((x) => [x.id, x]));
-      const r = await store.saveCategories(ids.map((x) => byId.get(x)));
-      if (!r.ok) {
-        toast(r.message);
-        rebuild();
-      }
-    });
+      return h('div', { class: ['m-row', !c.enabled && 'off', child && 'child'] }, iconBtn, h('div', { class: 'm-main' }, name, h('div', { class: 'm-tags' }, isDebt(c) ? h('span', { class: 'tag debt' }, '负债') : null, c.enabled ? null : h('span', { class: 'tag' }, '已停用'))), delBtn, dragHandle(c.name));
+    }, { className: 'manage-list' });
     const newName = h('input', { type: 'text', placeholder: addKind === 'debt' ? '新负债，如「信用卡」「花呗」' : '新账户，如「基金」「现金」', maxlength: 20, 'aria-label': '新账户名称', enterkeyhint: 'done' });
     const kind = seg([{ value: 'asset', label: '资产' }, { value: 'debt', label: '负债' }], addKind, (v) => {
       addKind = v;

@@ -989,3 +989,20 @@ html.kb-open .sheet-foot { padding-top: 10px; }
 .add-cat.card { display: grid; gap: 10px; padding: 14px; }
 .acct.line .amt { min-width: 0; }
 .acct.line { grid-template-columns: 32px minmax(0, 1fr) minmax(112px, 40%) 26px; }
+
+/* ---------- 两层排序：大类整组移动，小账户在组内移动 ---------- */
+.sort-list.grouped { overflow: hidden; }
+.sort-list.grouped .sort-group { position: relative; background: var(--surface); transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1); }
+.sort-list.grouped .sort-group:first-child { border-radius: var(--r-lg) var(--r-lg) 0 0; }
+.sort-list.grouped .sort-group:last-child { border-radius: 0 0 var(--r-lg) var(--r-lg); }
+.sort-list.grouped .sort-group:only-child { border-radius: var(--r-lg); }
+.sort-list.grouped .sort-group + .sort-group { border-top: 1px solid var(--hair); }
+.sort-list.grouped > .sort-group > .cat-item + .cat-item,
+.sort-list.grouped .m-row + .m-row, .sort-list.grouped .sort-row + .sort-row { border-top: 0; }
+.sort-children { position: relative; margin: 0 0 4px 28px; border-left: 1px solid color-mix(in srgb, var(--gold) 35%, transparent); }
+.sort-children > * { background: var(--surface); }
+.sort-children > * + * { border-top: 1px solid var(--hair) !important; }
+.sort-children .cat-open, .sort-children .sort-row { padding-left: 12px; }
+.sort-children .m-row { padding-left: 10px; min-height: 54px; }
+.sort-children .cat-nm, .sort-children .m-name { font-size: 14.5px; }
+.sort-list.grouped .sort-group.dragging { border-radius: 14px; }

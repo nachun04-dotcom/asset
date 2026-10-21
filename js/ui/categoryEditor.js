@@ -95,31 +95,54 @@ export function makeSortable(list, onSort) {
   list.addEventListener('pointercancel', end);
 }
 
+/**
+ * 两层排序列表：大类（同类账户的「根」）只跟大类交换，拖动时它下面的小类整组跟着走；
+ * 小类只能在自己所属的大类里面上下调换。松手后按「大类 → 它的小类」的顺序保存。
+ * renderRow(cat, isChild) 画一行（行里要有 .drag-handle）；返回整个列表元素。
+ */
+export function groupedSortable(store, renderRow, { className = '' } = {}) {
+  const cats = sortedCategories(store.state.categories);
+  const ids = new Set(cats.map((c) => c.id));
+  const roots = cats.filter((c) => !c.group || !ids.has(c.group) || c.group === c.id);
+  const kidsOf = (id) => cats.filter((c) => c.group === id && c.id !== id);
+  const outer = h('div', { class: ['list', 'sort-list', 'grouped', className] });
+  const save = async () => {
+    // 按页面上现在的顺序读出来：每个大类后面紧跟它的小类
+    const order = [...outer.children].flatMap((g) => [g.dataset.id, ...[...(g.querySelector(':scope > .sort-children')?.children ?? [])].map((r) => r.dataset.id)]);
+    const byId = new Map(store.state.categories.map((c) => [c.id, c]));
+    const r = await store.saveCategories(order.map((x) => byId.get(x)).filter(Boolean));
+    if (!r.ok) toast(r.message);
+  };
+  for (const root of roots) {
+    const grp = h('div', { class: 'sort-group', 'data-id': root.id }, renderRow(root, false));
+    const kids = kidsOf(root.id);
+    if (kids.length) {
+      const inner = h('div', { class: 'sort-children' });
+      for (const k of kids) {
+        const row = renderRow(k, true);
+        row.dataset.id = k.id;
+        inner.appendChild(row);
+      }
+      makeSortable(inner, save);
+      grp.appendChild(inner);
+    }
+    outer.appendChild(grp);
+  }
+  makeSortable(outer, save);
+  return outer;
+}
+
 export const dragHandle = (name) => h('span', { class: 'drag-handle', role: 'button', 'aria-label': `按住拖动「${name}」调整顺序`, title: '按住拖动排序' }, icon('grip', { size: 20, stroke: 1.8 }));
 
 /** 拖拽排序抽屉：「记一笔」里用，也可从别处打开。 */
 export function openReorderSheet(store, { onDone } = {}) {
-  const list = h('div', { class: 'list sort-list' });
-  const draw = () => {
-    list.replaceChildren(
-      ...sortedCategories(store.state.categories).map((c) =>
-        h('div', { class: ['sort-row', !c.enabled && 'off'], 'data-id': c.id }, catIcon(c, store.state.categories, { size: 32 }), h('span', { class: 'cat-nm' }, c.name, c.debt ? h('span', { class: 'tag debt' }, '负债') : null, c.enabled ? null : h('span', { class: 'tag' }, '已停用')), dragHandle(c.name)),
-      ),
-    );
-  };
+  const wrap = h('div', {});
+  const draw = () => wrap.replaceChildren(groupedSortable(store, (c, child) => h('div', { class: ['sort-row', !c.enabled && 'off', child && 'child'] }, catIcon(c, store.state.categories, { size: child ? 28 : 32 }), h('span', { class: 'cat-nm' }, c.name, c.debt ? h('span', { class: 'tag debt' }, '负债') : null, c.enabled ? null : h('span', { class: 'tag' }, '已停用')), dragHandle(c.name))));
   draw();
-  makeSortable(list, async (ids) => {
-    const byId = new Map(store.state.categories.map((c) => [c.id, c]));
-    const r = await store.saveCategories(ids.map((id) => byId.get(id)));
-    if (!r.ok) {
-      toast(r.message);
-      draw();
-    }
-  });
   const sheet = openSheet({
     title: '调整顺序',
     auto: true,
-    body: h('div', { class: 'stack' }, h('p', { class: 'hint' }, '按住右边的 ≡ 上下拖动，松手即保存。首页、记一笔都按这个顺序显示。'), list),
+    body: h('div', { class: 'stack' }, h('p', { class: 'hint' }, '按住右边的 ≡ 上下拖动，松手即保存。大类连同它下面的小账户一起移动；小账户只在自己的大类里调换。'), wrap),
     footer: button('完成', () => sheet.close(), { block: true }),
     onClose: () => onDone?.(),
   });
@@ -250,16 +273,9 @@ export function openCategoryEditor(store, id, { onChange } = {}) {
 
 /** 设置页用：每行「图标 + 完整名称（点开编辑） + 拖动把手」，拖动即保存顺序。 */
 export function categoryList(store) {
-  const list = h('div', { class: 'list sort-list' });
-  for (const cat of sortedCategories(store.state.categories)) {
-    const open = h('button', { type: 'button', class: 'cat-open', 'aria-label': `编辑「${cat.name}」` }, catIcon(cat, store.state.categories, { size: 36 }), h('span', { class: 'cat-nm' }, cat.name, cat.debt ? h('span', { class: 'tag debt' }, '负债') : null, cat.enabled ? null : h('span', { class: 'tag' }, '已停用')), icon('chevronR', { size: 16 }));
+  return groupedSortable(store, (cat, child) => {
+    const open = h('button', { type: 'button', class: 'cat-open', 'aria-label': `编辑「${cat.name}」` }, catIcon(cat, store.state.categories, { size: child ? 30 : 36 }), h('span', { class: 'cat-nm' }, cat.name, cat.debt ? h('span', { class: 'tag debt' }, '负债') : null, cat.enabled ? null : h('span', { class: 'tag' }, '已停用')), icon('chevronR', { size: 16 }));
     open.addEventListener('click', () => openCategoryEditor(store, cat.id));
-    list.appendChild(h('div', { class: ['cat-item', !cat.enabled && 'off', cat.group && 'sub'], 'data-id': cat.id }, open, dragHandle(cat.name)));
-  }
-  makeSortable(list, async (ids) => {
-    const byId = new Map(store.state.categories.map((c) => [c.id, c]));
-    const r = await store.saveCategories(ids.map((x) => byId.get(x)));
-    if (!r.ok) toast(r.message);
+    return h('div', { class: ['cat-item', !cat.enabled && 'off', child && 'child'] }, open, dragHandle(cat.name));
   });
-  return list;
 }
