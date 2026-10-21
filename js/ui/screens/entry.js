@@ -11,6 +11,7 @@ import { findByDate, hasValue, isComplete, recordedTotal, sortDesc } from '../..
 import { displayCategories } from '../snapshotView.js';
 import { confirmDeleteCategory, dragHandle, groupedSortable, openCategoryEditor } from '../categoryEditor.js';
 import { amountPad, evalExpr, prettyExpr } from '../amountPad.js';
+import { fx } from '../feedback.js';
 
 const newRow = () => ({ text: '', fxOn: false, cur: '', orig: '' });
 /** 输入框里显示的金额：带千分位（218,440.72），parseAmount 能原样读回。 */
@@ -212,6 +213,36 @@ export function openEntry(ctx, { id = null, date = null } = {}) {
     return { kind: 'last', text: `${shown}${last.fx ? `（${last.fx.currency}）` : ''}${far}`, reuse: !last.fx && !row.fxOn, fen: last.fen };
   }
 
+  /** 合计数字滚动到新值（约 0.3 秒，先快后慢）；系统设了「减弱动态效果」时直接跳到结果。 */
+  function rollMoney(el, fen) {
+    cancelAnimationFrame(el._roll);
+    clearTimeout(el._rollEnd);
+    if (fen == null) {
+      el._fen = null;
+      el.textContent = '—';
+      return;
+    }
+    const from = el._fen;
+    el._fen = fen;
+    if (from == null || from === fen || matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      el.textContent = formatMoney(fen, st.unit);
+      return;
+    }
+    const t0 = performance.now();
+    const step = (now) => {
+      const p = Math.min(1, (now - t0) / 320);
+      const e = 1 - (1 - p) ** 3;
+      el.textContent = formatMoney(p < 1 ? Math.round(from + (fen - from) * e) : fen, st.unit);
+      if (p < 1) el._roll = requestAnimationFrame(step);
+    };
+    el._roll = requestAnimationFrame(step);
+    // 后台或省电时动画帧可能暂停：到点直接写上最终结果
+    el._rollEnd = setTimeout(() => {
+      cancelAnimationFrame(el._roll);
+      el.textContent = formatMoney(fen, st.unit);
+    }, 420);
+  }
+
   /* ------------------------------ 刷新（不重建输入框，避免丢焦点） ------------------------------ */
 
   /** 日期小标签：「10月8日 周四」，今天 / 昨天再加一个小尾巴（窄屏会隐藏）。 */
@@ -260,7 +291,7 @@ export function openEntry(ctx, { id = null, date = null } = {}) {
     // 底部：合计（不完整时绝不叫「总资产」）
     ui.lbl.textContent = ev.count === 0 ? '合计' : ev.complete ? (ev.hasDebt ? '净资产' : '总资产') : '已记录合计';
     ui.stamp.replaceChildren(...(ev.count === 0 ? [] : [stamp(ev.complete, { sm: true })]));
-    ui.big.textContent = ev.count === 0 ? '—' : formatMoney(ev.total, st.unit);
+    rollMoney(ui.big, ev.count === 0 ? null : ev.total);
     ui.big.classList.toggle('muted', ev.count === 0 || !ev.complete);
     const need = Math.max(ev.expected.length, ev.count);
     ui.progress.textContent = need ? `已填 ${ev.count} / ${need}` : '';
@@ -288,7 +319,8 @@ export function openEntry(ctx, { id = null, date = null } = {}) {
       const got = ids.filter((cid) => ev.entries[cid]);
       sum.textContent = got.length ? formatMoney(Math.abs(got.reduce((n, cid) => n + ev.entries[cid].fen, 0)), st.unit) : '';
     }
-    ui.kbSum.textContent = ev.count === 0 ? '' : formatMoney(ev.total, st.unit);
+    if (ev.count === 0) ui.kbSum.textContent = '';
+    else rollMoney(ui.kbSum, ev.total);
     ui.kbProg.textContent = ui.progress.textContent;
     if (st.dirty) saveDraft();
     return ev;
@@ -355,6 +387,7 @@ export function openEntry(ctx, { id = null, date = null } = {}) {
     if (padCid) pad.start(st.rows.get(padCid)?.text ?? '');
     st.dirty = true;
     st.reusedCount = done.length;
+    fx.done();
     recalc();
     undoToast?.remove();
     undoToast = toast(`已沿用 ${done.length} 项，有变动的请改一下`, {
@@ -730,6 +763,7 @@ export function openEntry(ctx, { id = null, date = null } = {}) {
     if (saving) return;
     const ev = recalc();
     if (ui.blocked) {
+      fx.error();
       toast(ui.blocked);
       return;
     }
@@ -749,6 +783,7 @@ export function openEntry(ctx, { id = null, date = null } = {}) {
     }
     st.dirty = false;
     dropDraft();
+    fx.success();
     const hints = res.issues.filter((i) => i.code !== 'INCOMPLETE');
     await sheet.close();
     const id2 = res.snapshot.id;

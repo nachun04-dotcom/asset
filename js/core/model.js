@@ -27,6 +27,8 @@ export const DEFAULT_SETTINGS = Object.freeze({
   lockAfterSec: 60,
   hideAmounts: false, // 隐私模式：界面上的金额模糊显示
   goalFen: null, // 财富目标（分），null = 未设定
+  sound: true, // 操作音效
+  haptics: true, // 触感震动
 });
 
 export const SOURCE_LABELS = Object.freeze({

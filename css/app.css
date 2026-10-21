@@ -1079,3 +1079,17 @@ html.kb-open .toasts { bottom: calc(var(--kb, 0px) + 64px); }
 @keyframes caret { 50% { opacity: 0; } }
 .acct .sub.calc { color: var(--gold-text); font-weight: 500; }
 @media (prefers-reduced-motion: reduce) { .amt.active::after { animation: none; } .entry-sheet.kp-open .amount-pad { animation: none; } }
+
+/* ---------- 按压手感：按下微缩、松手带一点回弹 ---------- */
+:is(.btn, .icon-btn, .head-btn, .kb-save, .link-btn, .seg button, .tab, .reuse, .more, .m-del, .grp-name) { transition: transform 0.32s cubic-bezier(0.2, 1.5, 0.4, 1), background-color 0.18s ease, filter 0.18s ease, color 0.18s ease; }
+:is(.icon-btn, .head-btn, .kb-save, .link-btn, .seg button, .reuse, .more, .m-del):active { transform: scale(0.94); transition-duration: 0.08s; }
+.tab:active svg { transform: scale(0.88); transition: transform 0.08s; }
+.tab svg { transition: transform 0.32s cubic-bezier(0.2, 1.5, 0.4, 1); }
+.seg button[aria-pressed="true"] { animation: seg-in 0.34s cubic-bezier(0.2, 1.4, 0.4, 1); }
+@keyframes seg-in { from { transform: scale(0.9); } }
+/* 金额键盘：数字键按下时一圈淡金色的光 */
+.pk::before { content: ""; position: absolute; inset: 0; border-radius: inherit; background: radial-gradient(circle at 50% 55%, color-mix(in srgb, var(--gold) 26%, transparent), transparent 70%); opacity: 0; transition: opacity 0.35s ease; pointer-events: none; }
+.pk.down::before { opacity: 1; transition-duration: 0.05s; }
+.pk.done::before { display: none; }
+.entry-foot .big, .kb-bar .ks { font-variant-numeric: tabular-nums; }
+@media (prefers-reduced-motion: reduce) { .seg button[aria-pressed="true"] { animation: none; } }

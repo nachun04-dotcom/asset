@@ -1,5 +1,6 @@
 // 通用界面组件：分段控件、印章标签、提示条、空状态、抽屉、对话框、提示消息。
 import { h, icon, clear } from './dom.js';
+import { fx } from './feedback.js';
 
 export function seg(options, value, onChange, { block = false, label, variant } = {}) {
   const wrap = h('div', { class: ['seg', block && 'block', variant], role: 'group', 'aria-label': label });
@@ -445,7 +446,7 @@ function openDialog(build) {
 /** 确认对话框 → Promise<boolean> */
 export function confirmDialog({ title, message, confirmText = '确定', cancelText = '取消', danger = false }) {
   return openDialog((done) =>
-    h('div', { class: 'dialog', role: 'alertdialog', 'aria-modal': 'true' }, h('h2', {}, title), message ? h('p', {}, ...[].concat(message)) : null, h('div', { class: 'actions' }, h('button', { class: ['btn', danger ? 'danger' : ''], type: 'button', onClick: () => done(true) }, confirmText), h('button', { class: 'btn secondary', type: 'button', onClick: () => done(false) }, cancelText))),
+    h('div', { class: 'dialog', role: 'alertdialog', 'aria-modal': 'true' }, h('h2', {}, title), message ? h('p', {}, ...[].concat(message)) : null, h('div', { class: 'actions' }, h('button', { class: ['btn', danger ? 'danger' : ''], type: 'button', onClick: () => (danger && fx.remove(), done(true)) }, confirmText), h('button', { class: 'btn secondary', type: 'button', onClick: () => done(false) }, cancelText))),
   );
 }
 

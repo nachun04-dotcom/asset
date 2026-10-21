@@ -1,6 +1,7 @@
 // 导入预览校对页：所有来源（图片 / 文本 / CSV / Excel）都先到这里，逐项确认后才写入账本。
 // 这一页上的每个控件都直接修改「草稿」，每次修改后重新评估；草稿不等于账本，关掉页面不会留下任何东西。
 import { h } from '../dom.js';
+import { fx } from '../feedback.js';
 import { alertDialog, button, closeAllSheets, confirmDialog, issueList, openSheet, promptDialog, seg, toast } from '../components.js';
 import { catIcon } from '../fmt.js';
 import { SKIP_CATEGORY, applyColumnMapping, applyHeaderOrder, buildCommit, evaluateDraft, headerOrderMapping, setRowDate, setZeroFill, suggestUnit } from '../../core/importPlan.js';
@@ -345,6 +346,7 @@ export function openImportPreview(ctx, draft, { imageUrl = null } = {}) {
     }
     touched = false;
     await closeAllSheets();
+    fx.success();
     toast(`已导入 ${res.count} 条记录`);
     nav.goto('history');
   }

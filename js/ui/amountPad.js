@@ -2,6 +2,7 @@
 // 只管「算式」本身：数字、小数点、+ −、退格（长按清空）；结果怎么用由调用方决定。
 import { h, icon } from './dom.js';
 import { parseAmount } from '../core/money.js';
+import { fx, iosHaptic } from './feedback.js';
 
 const OPS = ['+', '−'];
 const isOp = (c) => OPS.includes(c);
@@ -47,7 +48,6 @@ export function amountPad({ decimals, onChange, onNext, onDone }) {
   let expr = '';
   let fresh = false; // 刚打开一个已有金额的栏：先按数字＝重新输入，先按 + − ＝在原数上加减
 
-  const buzz = () => navigator.vibrate?.(6);
   const set = (v) => {
     expr = v;
     onChange(expr);
@@ -106,16 +106,18 @@ export function amountPad({ decimals, onChange, onNext, onDone }) {
     if (!b || b.disabled) return;
     e.preventDefault();
     b.classList.add('down');
-    buzz();
     const k = b.dataset.k;
-    if (k === 'next') return onNext();
-    if (k === 'done') return onDone();
+    if (k === 'next') return fx.select(), onNext();
+    if (k === 'done') return fx.done(), onDone();
+    if (k === 'back') fx.back();
+    else fx.key();
     press(k);
     if (k === 'back') {
       clearTimeout(holdT);
       holdT = setTimeout(() => {
+        if (!expr) return;
         press('clear');
-        navigator.vibrate?.(14);
+        fx.remove();
       }, 550);
     }
   });
@@ -128,7 +130,7 @@ export function amountPad({ decimals, onChange, onNext, onDone }) {
   grid.addEventListener('pointerleave', up);
   // 读屏 / 键盘用户：用 click 触发（pointerdown 已处理的会被 preventDefault 掉焦点，不会重复）
   grid.addEventListener('click', (e) => {
-    if (e.detail !== 0) return;
+    if (e.detail !== 0) return iosHaptic(); // iPhone 的触感只能在点按完成的这一刻触发
     const b = e.target.closest('.pk');
     if (!b) return;
     const k = b.dataset.k;

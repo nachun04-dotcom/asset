@@ -5,6 +5,7 @@ import { catIcon, catSlotClass, iconGlyph } from './fmt.js';
 import { ICONSET, ICON_GROUPS } from './iconset.js';
 import { CATEGORY_ICON_KEYS, cleanName, groupKey, groupName, iconKeyFor, sortedCategories } from '../core/model.js';
 import { toggleDebt } from './categoryActions.js';
+import { fx } from './feedback.js';
 
 const CLASSIC_LABELS = { wallet: '钱包', chat: '聊天', card: '银行卡', bank: '银行', cash: '现金', coin: '硬币', bitcoin: '数字货币', safe: '保险柜', trend: '走势', chart: '柱状图', sprout: '理财', gem: '贵金属', box: '货物', cart: '购物', briefcase: '公文包', home: '房产', car: '汽车', globe: '海外', receipt: '账单', shield: '保障', heart: '健康', star: '星标', pie: '组合', phone: '手机' };
 const labelOf = (k) => ICONSET[k]?.label ?? CLASSIC_LABELS[k] ?? k;
@@ -37,6 +38,7 @@ export function makeSortable(list, onSort) {
       if (i > g.from && mid > it.mid) to = Math.max(to, i);
       if (i < g.from && mid < it.mid) to = Math.min(to, i);
     });
+    if (to !== g.to) fx.step();
     g.to = to;
     g.items.forEach((it, i) => {
       if (i === g.from) return;
@@ -60,9 +62,9 @@ export function makeSortable(list, onSort) {
       ids.splice(to, 0, moved);
       const ref = items[to].el;
       list.insertBefore(el, to > from ? ref.nextSibling : ref);
-      navigator.vibrate?.(8);
       onSort(ids);
     }
+    fx.drop();
   };
 
   list.addEventListener('pointerdown', (e) => {
@@ -85,6 +87,7 @@ export function makeSortable(list, onSort) {
     g = { el, items, from, to: from, y0: e.clientY, h: b.height, mid0: b.top + b.height / 2, scroll0: scroller().scrollTop };
     list.classList.add('sorting');
     el.classList.add('dragging');
+    fx.pick();
   });
   list.addEventListener('pointermove', (e) => {
     if (!g) return;

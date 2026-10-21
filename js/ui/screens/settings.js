@@ -1,5 +1,6 @@
 // 设置：备份与恢复、类别、显示、安全、存储与离线、清除数据。
 import { h, icon } from '../dom.js';
+import { fx } from '../feedback.js';
 import { alertDialog, button, confirmDialog, noteBox, openSheet, promptDialog, seg, switchControl, toast } from '../components.js';
 import { openTemplates } from './importHub.js';
 import { MIN_PASSWORD_LENGTH, createBackup, openBackup } from '../../core/backup.js';
@@ -52,6 +53,7 @@ function openBackupExport(ctx) {
       }
       await store.markBackedUp();
       await sheet.close();
+      fx.success();
       toast(r === 'shared' ? '备份已交给分享面板，请确认存到了安全的地方' : '备份文件已下载，请把它存到手机以外的地方');
     } catch (e) {
       go.disabled = false;
@@ -124,6 +126,7 @@ function confirmRestore(ctx, res) {
       const r = await store.restore(payload);
       if (!r.ok) return alertDialog({ title: '没有恢复', message: r.message });
       await sheet.close();
+      fx.success();
       toast(`已恢复 ${r.count} 条记录`, { actionText: '撤销', onAction: async () => { const u = await store.undoRestore(); toast(u.ok ? '已撤销，回到恢复前的数据' : u.message); }, ms: 9000 });
     }, { block: true }), button('取消', () => sheet.close(), { block: true, kind: 'secondary' })),
   });
@@ -274,6 +277,8 @@ export function buildSettings(ctx, opts = {}) {
       return h(
         'div',
         { class: 'list' },
+        row('操作音效', '按键、保存时的轻声提示；手机静音时不响', switchControl(s.sound !== false, (on) => set({ sound: on }).then(() => on && fx.done()), '操作音效')),
+        row('触感震动', isIOS() ? 'iPhone 需 iOS 18 及以上' : null, switchControl(s.haptics !== false, (on) => set({ haptics: on }).then(() => on && fx.select()), '触感震动')),
         row('隐藏金额', '首页右上角的眼睛也能切换', switchControl(!!s.hideAmounts, (on) => set({ hideAmounts: on }), '隐藏金额')),
         row('财富目标', '首页显示达成进度', button(s.goalFen ? compactYuan(s.goalFen) : '设定', () => editGoal(store), { sm: true, kind: 'secondary' })),
         row('金额单位', null, seg([{ value: 'yuan', label: '元' }, { value: 'wan', label: '万元' }], s.unit, (v) => set({ unit: v }), { label: '金额单位' })),

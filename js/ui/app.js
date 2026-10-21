@@ -1,5 +1,6 @@
 // 应用外壳：底部标签栏、路由、锁屏覆盖层、外观设置。
 import { h, icon } from './dom.js';
+import { configure as configureFeedback, fx, unlockAudio } from './feedback.js';
 import { closeAllSheets } from './components.js';
 import { buildHome } from './screens/home.js';
 import { buildAnalysis } from './screens/analysis.js';
@@ -57,6 +58,23 @@ export function mountApp(rootEl, store, env = {}) {
   rootEl.replaceChildren(app);
 
   const ctx = { store, repoKind: env.repoKind ?? 'indexeddb', nav: {} };
+
+  // 操作反馈：跟随设置里的开关；所有按钮、导航、开关统一给轻触感和按键声（金额键盘、拖动把手有自己的反馈）
+  const syncFeedback = (st) => configureFeedback({ sound: st.settings.sound !== false, haptics: st.settings.haptics !== false });
+  syncFeedback(store.state);
+  store.subscribe(syncFeedback);
+  unlockAudio();
+  document.addEventListener(
+    'click',
+    (e) => {
+      const t = e.target;
+      if (!(t instanceof Element) || t.closest('.amount-pad, .drag-handle, .switch')) return;
+      if (t.closest('.seg button')) return fx.select();
+      if (t.closest('button:not(:disabled), a[href], [role="button"], label.date-chip')) fx.tap();
+    },
+    true,
+  );
+  document.addEventListener('change', (e) => e.target instanceof Element && e.target.closest('.switch') && fx.select(), true);
   let current = null;
   let pending = {};
 
