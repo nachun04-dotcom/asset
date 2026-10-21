@@ -243,7 +243,8 @@ function evalRow(row, dateRes, draft, ctx, catMap, expectedIds) {
       issues.push({ code: 'DUP_CATEGORY', level: 'block', cell: j, text: `「${catMap.get(cat).name}」在同一条记录里被指定了两次` });
     } else {
       used.add(cat);
-      if (fen != null) ev.entries[cat] = { fen };
+      // 负债类别：表格里通常写欠款正数，存成负数才算进净资产；已经写成负数的保持原样（例如本 App 导出的 CSV）
+      if (fen != null) ev.entries[cat] = { fen: catMap.get(cat)?.debt && fen > 0 ? -fen : fen };
     }
     if (cell.lowConf) {
       issues.push({ code: 'LOW_CONF', level: 'warn', cell: j, text: `「${raw}」识别置信度偏低${cell.conf != null ? `（${Math.round(cell.conf)}%）` : ''}，请对照原图核对` });

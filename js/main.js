@@ -33,10 +33,22 @@ function registerServiceWorker() {
   navigator.serviceWorker
     .register('./sw.js')
     .then((reg) => {
+      // 新版本下载好后给一个「立即更新」：点了才换（不会在你填到一半时自动刷新），不点就等下次打开再生效
+      const offer = (worker) => {
+        toast('新版本已下载好', {
+          ms: 12000,
+          actionText: '立即更新',
+          onAction: () => {
+            navigator.serviceWorker.addEventListener('controllerchange', () => location.reload(), { once: true });
+            worker.postMessage('skipWaiting');
+          },
+        });
+      };
+      if (reg.waiting && navigator.serviceWorker.controller) offer(reg.waiting);
       reg.addEventListener('updatefound', () => {
         const nw = reg.installing;
         nw?.addEventListener('statechange', () => {
-          if (nw.state === 'installed' && navigator.serviceWorker.controller) toast('新版本已下载好，下次打开 App 时生效', { ms: 7000 });
+          if (nw.state === 'installed' && navigator.serviceWorker.controller) offer(nw);
         });
       });
     })
