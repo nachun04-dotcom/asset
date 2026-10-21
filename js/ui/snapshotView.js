@@ -53,6 +53,7 @@ export function coverCard({ label, dateText, fen = null, complete = true, unit, 
   if (owner) el.appendChild(h('div', { class: 'cover-owner' }, h('span', {}, `PRIVATE LEDGER · SINCE ${owner.since}`), h('b', {}, owner.name)));
   // 卡面光影：倾斜手机时移动的反光层（设置里打开才显示）
   el.appendChild(h('span', { class: 'cover-sheen', 'aria-hidden': 'true' }));
+  el.appendChild(h('span', { class: 'cover-edge', 'aria-hidden': 'true' }));
   return el;
 }
 

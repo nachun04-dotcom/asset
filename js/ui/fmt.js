@@ -52,19 +52,25 @@ export function heroAmount(fen, unit, { dim = false } = {}) {
 }
 
 /**
- * 一道斜向的金色光泽扫过整张封面一次。
- * 用单独的一层平移，不去改大数字本身的渐变文字（iPhone 上改文字背景会让整张卡闪一下）。
+ * 一束光沿着卡片内圈的金线走一圈后隐去（像灯光掠过金属卡的包边），只亮金线，不盖住数字。
+ * 一层细的亮线 + 一层模糊的光晕。inset / radius：金线离卡边的距离和圆角。
  */
-export function glint(cover) {
-  if (!cover || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-  cover.querySelector('.cover-glint')?.remove();
-  const g = h('span', { class: 'cover-glint', 'aria-hidden': 'true' });
-  g.addEventListener('animationend', () => g.remove(), { once: true });
-  cover.appendChild(g);
+export function glint(card, { inset = 8, radius = 19, dur = 2200 } = {}) {
+  if (!card || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  card.querySelectorAll(':scope > .trace').forEach((t) => t.remove());
+  const style = `--ti:${inset}px;--tr:${radius}px;--td:${dur}ms`;
+  const glow = h('span', { class: 'trace glow', style, 'aria-hidden': 'true' }, h('i'));
+  const line = h('span', { class: 'trace', style, 'aria-hidden': 'true' }, h('i'));
+  line.addEventListener('animationend', (e) => {
+    if (e.target !== line) return;
+    glow.remove();
+    line.remove();
+  });
+  card.append(glow, line);
 }
 
 /**
- * 首页欢迎动画：大数字从 0 一路滚到总额（先快后慢，约 1.4 秒），落定后一道金色光泽扫过卡片。
+ * 首页欢迎动画：大数字从 0 一路滚到总额（先快后慢，约 1.4 秒），落定后一束光沿金线走一圈。
  * 隐藏金额或系统要求减弱动态效果时不播放。
  */
 export function animateHero(hero, fen, unit) {

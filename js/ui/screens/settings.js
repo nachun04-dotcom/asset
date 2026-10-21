@@ -14,7 +14,7 @@ import { editGoal } from '../insights.js';
 import { categoryList } from '../categoryEditor.js';
 import { compactYuan } from '../fmt.js';
 import { LIVE_STYLES, liveStyleOf } from '../liveNumber.js';
-import { askTilt } from '../tilt.js';
+import { askTilt, tiltAlive } from '../tilt.js';
 
 const when = (iso) => {
   const d = new Date(iso);
@@ -272,13 +272,20 @@ export function buildSettings(ctx, opts = {}) {
           return store.updateSettings({ tilt: false });
         }
         await set({ tilt: on });
+        if (!on) return;
+        fx.select();
+        toast('已打开，回首页倾斜手机看看卡面');
+        // 电脑没有陀螺仪：鼠标在卡片上移动也有效果，不提示
+        setTimeout(() => {
+          if (!tiltAlive() && matchMedia('(pointer: coarse)').matches) toast('没有收到手机方向数据：请在系统设置里允许此 App 使用「动作与方向」');
+        }, 1800);
       }, '卡面光影');
       return h(
         'div',
         { class: 'list' },
         row('卡面', null, seg([{ value: 'noir', label: '黑金' }, { value: 'champagne', label: '香槟' }, { value: 'jade', label: '墨绿' }], skin, (v) => set({ coverSkin: v }), { label: '卡面' })),
         row('持有人', '显示在首页卡片底部', button(s.holderName || '设定', editHolder, { sm: true, kind: 'secondary' })),
-        row('卡面光影', '倾斜手机时，卡上的金色反光跟着移动', tiltSwitch),
+        row('卡面光影', '倾斜手机时，卡面高光和金边跟着光线移动', tiltSwitch),
         row('开屏动画', '打开 App 时的徽记动画，点一下可跳过', switchControl(s.splash !== false, (on) => set({ splash: on }), '开屏动画')),
         row('实时增长', '首页净资产按近一年增速每秒增长（估算）', switchControl(s.liveGrowth !== false, (on) => store.updateSettings({ liveGrowth: on }), '实时增长')),
         s.liveGrowth !== false ? row('增长风格', null, seg(LIVE_STYLES.map(({ value, label }) => ({ value, label })), liveStyleOf(s), (v) => set({ liveStyle: v }), { label: '增长风格' })) : null,

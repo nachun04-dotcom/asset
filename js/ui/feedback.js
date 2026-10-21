@@ -8,6 +8,7 @@ const canVibrate = env && typeof navigator.vibrate === 'function';
 const reducedMotion = () => env && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
 let opts = { sound: true, haptics: true };
+let holdIOS = false; // 在 pointerdown 里时先不点 iPhone 的触感，等手指抬起再补（见 iosHaptic）
 /** 跟随设置里的「操作音效」「触感震动」开关。 */
 export function configure(next) {
   opts = { ...opts, ...next };
@@ -15,24 +16,23 @@ export function configure(next) {
 
 /* ------------------------------ 震动 ------------------------------ */
 
-let iosSwitch = null;
+// 每次新建一个隐藏的系统开关、点一下、再移除（与 iOS 18 上验证可用的做法一致）。
+// 必须在「手指抬起」那一刻（pointerup / touchend / click）调用，系统才会给触感。
 function iosTick() {
   // 正在打字时不点（点隐藏开关可能抢走输入框的焦点）
   if (document.activeElement?.matches?.('input:not([readonly]):not([type=checkbox]), textarea')) return;
-  if (!iosSwitch) {
-    iosSwitch = document.createElement('label');
-    iosSwitch.setAttribute('aria-hidden', 'true');
-    iosSwitch.style.cssText = 'position:fixed;left:-200px;top:0;width:1px;height:1px;overflow:hidden;opacity:0;pointer-events:none';
+  try {
+    const label = document.createElement('label');
+    label.setAttribute('aria-hidden', 'true');
+    label.style.display = 'none';
     const input = document.createElement('input');
     input.type = 'checkbox';
     input.setAttribute('switch', '');
-    input.tabIndex = -1;
-    iosSwitch.appendChild(input);
-    iosSwitch.addEventListener('click', (e) => e.stopPropagation());
-    document.body.appendChild(iosSwitch);
-  }
-  try {
-    iosSwitch.click();
+    label.appendChild(input);
+    label.addEventListener('click', (e) => e.stopPropagation());
+    document.head.appendChild(label);
+    label.click();
+    label.remove();
   } catch {
     /* 不支持就算了 */
   }
@@ -46,14 +46,24 @@ function buzz(pattern) {
     } catch {
       /* 忽略 */
     }
-  } else if (isIOS) {
+  } else if (isIOS && !holdIOS) {
     iosTick();
     // 多段的（成功 / 出错）再补一下；不在点按当下时系统可能不响应，没关系
     if (Array.isArray(pattern) && pattern.length > 2) setTimeout(iosTick, 110);
   }
 }
 
-/** iPhone 的触感只能在「点按」那一刻触发：用 pointerdown 响应的按键，在随后的 click 里补一下。 */
+/** 在 pointerdown 里播放声音和安卓震动，iPhone 的触感留到手指抬起时由 iosHaptic 补上。 */
+export function soundOnly(fn) {
+  holdIOS = true;
+  try {
+    fn();
+  } finally {
+    holdIOS = false;
+  }
+}
+
+/** iPhone 的触感只能在「手指抬起」那一刻触发：按下就响应的按键，在 pointerup 里补一下。 */
 export function iosHaptic() {
   if (env && opts.haptics && !canVibrate && isIOS) iosTick();
 }

@@ -2,7 +2,7 @@
 // 只管「算式」本身：数字、小数点、+ −、退格、清空；结果怎么用由调用方决定。
 import { h, icon } from './dom.js';
 import { parseAmount } from '../core/money.js';
-import { fx, iosHaptic } from './feedback.js';
+import { fx, iosHaptic, soundOnly } from './feedback.js';
 
 const OPS = ['+', '−'];
 const isOp = (c) => OPS.includes(c);
@@ -44,6 +44,7 @@ export function prettyExpr(expr) {
 /**
  * @param {{ decimals: () => number, onChange: (expr: string) => void, onNext: () => void, onDone: () => void }} opts
  * onNext 只给实体键盘的 Enter / Tab 用（跳到下一栏）；屏幕键盘上那个位置是「清空」。
+ * 键盘顶上有一根小横条：按住横条或算式那一行往下拉，就能收起键盘。
  */
 export function amountPad({ decimals, onChange, onNext, onDone }) {
   let expr = '';
@@ -104,7 +105,48 @@ export function amountPad({ decimals, onChange, onNext, onDone }) {
   const calcExpr = h('span', { class: 'pc-expr' });
   const calcRes = h('span', { class: 'pc-res', hidden: true });
   const calc = h('div', { class: 'pad-calc', 'aria-live': 'polite' }, calcName, h('span', { class: 'pc-main' }, calcExpr, calcRes));
-  const el = h('div', { class: 'amount-pad', role: 'group', 'aria-label': '金额键盘' }, calc, grid);
+  const top = h('div', { class: 'pad-top', title: '往下拉收起键盘' }, h('span', { class: 'pad-grab', 'aria-hidden': 'true' }), calc);
+  const el = h('div', { class: 'amount-pad', role: 'group', 'aria-label': '金额键盘' }, top, grid);
+
+  // 往下拉收起：键盘跟着手指走，松手时拉得够远（或甩得够快）就收起，否则弹回
+  let drag = null;
+  top.addEventListener('pointerdown', (e) => {
+    drag = { id: e.pointerId, y0: e.clientY, t0: performance.now(), dy: 0, lastY: e.clientY, lastT: performance.now(), v: 0 };
+    top.setPointerCapture?.(e.pointerId);
+    el.style.transition = 'none';
+  });
+  top.addEventListener('pointermove', (e) => {
+    if (!drag || e.pointerId !== drag.id) return;
+    const raw = e.clientY - drag.y0;
+    drag.dy = raw > 0 ? raw : -Math.sqrt(-raw) * 2; // 往上拉只有一点点阻尼感
+    const now = performance.now();
+    drag.v = (e.clientY - drag.lastY) / Math.max(1, now - drag.lastT);
+    drag.lastY = e.clientY;
+    drag.lastT = now;
+    el.style.transform = `translate3d(0, ${drag.dy}px, 0)`;
+  });
+  const endDrag = (e) => {
+    if (!drag || e.pointerId !== drag.id) return;
+    const { dy, v } = drag;
+    drag = null;
+    const h0 = el.offsetHeight || 300;
+    if (dy > Math.min(90, h0 * 0.28) || (dy > 16 && v > 0.55)) {
+      el.style.transition = 'transform 0.24s cubic-bezier(0.3, 0, 0.8, 0.4)';
+      el.style.transform = `translate3d(0, ${h0}px, 0)`;
+      fx.done();
+      iosHaptic();
+      setTimeout(() => {
+        onDone();
+        el.style.transition = 'none';
+        el.style.transform = '';
+      }, 230);
+    } else {
+      el.style.transition = 'transform 0.42s cubic-bezier(0.2, 1.3, 0.4, 1)';
+      el.style.transform = '';
+    }
+  };
+  top.addEventListener('pointerup', endDrag);
+  top.addEventListener('pointercancel', endDrag);
 
   let holdT = null;
   grid.addEventListener('pointerdown', (e) => {
@@ -113,13 +155,12 @@ export function amountPad({ decimals, onChange, onNext, onDone }) {
     e.preventDefault();
     b.classList.add('down');
     const k = b.dataset.k;
-    if (k === 'done') return fx.done(), onDone();
+    if (k === 'done') return soundOnly(() => fx.done()), onDone();
     if (k === 'clear') {
-      if (expr) fx.remove();
+      if (expr) soundOnly(() => fx.remove());
       return press('clear');
     }
-    if (k === 'back') fx.back();
-    else fx.key();
+    soundOnly(() => (k === 'back' ? fx.back() : fx.key()));
     press(k);
     if (k === 'back') {
       clearTimeout(holdT);
@@ -134,12 +175,16 @@ export function amountPad({ decimals, onChange, onNext, onDone }) {
     clearTimeout(holdT);
     grid.querySelectorAll('.pk.down').forEach((b) => b.classList.remove('down'));
   };
-  grid.addEventListener('pointerup', up);
+  // iPhone 的触感：手指抬起这一刻补上（按下时系统不给触感）
+  grid.addEventListener('pointerup', (e) => {
+    if (e.target.closest('.pk') && grid.querySelector('.pk.down')) iosHaptic();
+    up();
+  });
   grid.addEventListener('pointercancel', up);
   grid.addEventListener('pointerleave', up);
   // 读屏 / 键盘用户：用 click 触发（pointerdown 已处理的会被 preventDefault 掉焦点，不会重复）
   grid.addEventListener('click', (e) => {
-    if (e.detail !== 0) return iosHaptic(); // iPhone 的触感只能在点按完成的这一刻触发
+    if (e.detail !== 0) return; // 手指 / 鼠标点按已在 pointerdown 处理过；这里只管读屏和键盘操作
     const b = e.target.closest('.pk');
     if (!b) return;
     const k = b.dataset.k;

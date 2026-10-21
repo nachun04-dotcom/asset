@@ -2,7 +2,7 @@
 import { h, icon } from './dom.js';
 import { button, toast } from './components.js';
 import { fx } from './feedback.js';
-import { compactYuan } from './fmt.js';
+import { compactYuan, glint } from './fmt.js';
 import { milestoneName, nextMilestone, reachedMilestones } from '../core/milestones.js';
 import { formatMoney } from '../core/money.js';
 import { formatDateZh } from '../core/date.js';
@@ -35,7 +35,6 @@ export function celebrate(m, { holder = '', replay = false } = {}) {
   const card = h(
     'div',
     { class: 'ms-card' },
-    h('span', { class: 'ms-sheen', 'aria-hidden': 'true' }),
     h('div', { class: 'ms-kicker' }, h('i', { 'aria-hidden': 'true' }), t.kicker, h('i', { 'aria-hidden': 'true' })),
     h('div', { class: 'ms-title' }, t.title),
     h('div', { class: 'ms-big' }, t.big),
@@ -68,6 +67,7 @@ export function celebrate(m, { holder = '', replay = false } = {}) {
   document.addEventListener('keydown', onKey);
   document.body.appendChild(el);
   open = { close };
+  setTimeout(() => card.isConnected && glint(card, { inset: 12, radius: 17, dur: 2400 }), 700);
   if (!replay) setTimeout(() => fx.success(), 380);
 }
 

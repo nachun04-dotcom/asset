@@ -1,34 +1,34 @@
 // 开屏：金色菱形徽记描出来 → 「资产账本」浮现 → 渐隐进首页。约 1.3 秒，点一下可以跳过。
-// 只在冷启动时播放；系统要求减弱动态效果时不播放。
-import { h, s } from './dom.js';
+// 开屏直接写在 index.html 里，页面第一帧就是它（不会先闪一下浅色的空白页再跳出黑色开屏）。
+// 动画从页面一打开就开始，这里只负责在合适的时候让它渐隐。
+
+const MIN_MS = 1350; // 徽记、字、金线都出完的时间
+
+const el = () => document.getElementById('splash');
+
+/** 立刻移除开屏（出错时要露出错误提示）。 */
+export function dropSplash() {
+  el()?.remove();
+}
 
 /**
- * 显示开屏。onReveal 在开始渐隐时调用（这时挂上首页，首页的欢迎动画正好接上）。
+ * 数据准备好后调用。on=false（设置里关了开屏）或系统要求减弱动态效果时，马上淡出；
+ * 否则等徽记动画播完再淡出。onReveal 在开始淡出时调用：这时挂上首页，首页的欢迎动画正好接上。
  */
-export function playSplash(onReveal) {
-  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return onReveal();
-  const mark = s(
-    'svg',
-    { viewBox: '0 0 64 64', width: 64, height: 64, class: 'sp-mark', 'aria-hidden': 'true' },
-    s('path', { d: 'M32 4 L60 32 L32 60 L4 32 Z', class: 'sp-outer' }),
-    s('path', { d: 'M32 15 L49 32 L32 49 L15 32 Z', class: 'sp-inner' }),
-    s('path', { d: 'M32 25 L39 32 L32 39 L25 32 Z', class: 'sp-core' }),
-  );
-  const el = h(
-    'div',
-    { class: 'splash', role: 'presentation' },
-    h('div', { class: 'sp-box' }, mark, h('div', { class: 'sp-name' }, '资产账本'), h('div', { class: 'sp-line', 'aria-hidden': 'true' }), h('div', { class: 'sp-sub' }, 'PRIVATE  LEDGER')),
-  );
-  let revealed = false;
-  const reveal = () => {
-    if (revealed) return;
-    revealed = true;
+export function revealSplash(onReveal, { on = true } = {}) {
+  const sp = el();
+  if (!sp) return onReveal();
+  const quick = !on || matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let done = false;
+  const go = () => {
+    if (done) return;
+    done = true;
     clearTimeout(t);
     onReveal();
-    el.classList.add('out');
-    setTimeout(() => el.remove(), 650);
+    sp.classList.add('out');
+    if (quick) sp.style.transitionDuration = '0.28s';
+    setTimeout(() => sp.remove(), quick ? 320 : 700);
   };
-  el.addEventListener('pointerdown', reveal);
-  document.body.appendChild(el);
-  const t = setTimeout(reveal, 1350);
+  sp.addEventListener('pointerdown', go);
+  const t = setTimeout(go, quick ? 0 : Math.max(0, MIN_MS - performance.now()));
 }
