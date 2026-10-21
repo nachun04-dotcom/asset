@@ -1,12 +1,12 @@
 // 首页净资产的实时增长，三套风格：
-//  流光 glow —— 整串数字每秒更新，小数部分泛一下金光；
+//  流光 glow —— 整串数字每秒安静地更新；
 //  翻牌 flip —— 像机场航班牌，每个数字一块牌，变的那一格上半片翻下来；
 //  滚轮 roll —— 像机械里程表，每个数字是一圈滚轮，向上滚到新数字。
 import { h } from './dom.js';
-import { animateHero, glint, liveParts } from './fmt.js';
+import { animateHero, glint, heroWidth, liveParts } from './fmt.js';
 
 export const LIVE_STYLES = [
-  { value: 'glow', label: '流光', desc: '数字平滑更新，小数泛起金光' },
+  { value: 'glow', label: '流光', desc: '数字安静地平滑更新' },
   { value: 'flip', label: '翻牌', desc: '像机场航班牌，逐格翻动' },
   { value: 'roll', label: '滚轮', desc: '像机械里程表，数字向上滚动' },
 ];
@@ -137,16 +137,19 @@ export function liveHero(hero, { fen0, t0, perSec, unit, style = 'glow', welcome
 
   let paint;
   if (style === 'glow') {
-    paint = (tick) => {
+    // 流光：数字每秒安静地更新，不做任何闪动
+    let width = 0;
+    paint = () => {
       const [i, d] = liveParts(at(), unit);
-      intEl.textContent = i;
-      decEl.textContent = `.${d}`;
-      if (!tick) return;
-      decEl.classList.remove('tick');
-      void decEl.offsetWidth; // 重新触发小数部分的微光
-      decEl.classList.add('tick');
+      if (i.length + d.length !== width) {
+        width = i.length + d.length;
+        hero.style.setProperty('--w', heroWidth(i, d, unit).toFixed(2)); // 多了一位数时重新算字号
+      }
+      // 只改变了的部分，没变就不碰（避免每秒无谓地重绘整串数字）
+      if (intEl.textContent !== i) intEl.textContent = i;
+      if (decEl.textContent !== `.${d}`) decEl.textContent = `.${d}`;
     };
-    paint(false);
+    paint();
     if (welcome) animateHero(hero, at(), unit);
   } else {
     hero.classList.add('board', style);
@@ -175,6 +178,6 @@ export function liveHero(hero, { fen0, t0, perSec, unit, style = 'glow', welcome
   const timer = setInterval(() => {
     if (!hero.isConnected) return clearInterval(timer);
     if (document.hidden || hero.classList.contains('counting')) return;
-    paint(true);
+    paint();
   }, 1000);
 }

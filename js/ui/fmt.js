@@ -36,13 +36,22 @@ export function catIcon(cat, categories = [], { size = 32, key = null } = {}) {
   return h('span', { class: `cat-ico ${catSlotClass(cat)}`, style: `--sz:${size}px`, 'aria-hidden': 'true' }, iconGlyph(key ?? iconKeyFor(cat, categories), { size: glyph, stroke: 1.7 }));
 }
 
+/**
+ * 大数字一行的宽度（以字号为单位）：数字 0.52、逗号小数点 0.28（Didot 实测），小数部分是半号字，加上 ¥ 和「万」。
+ * CSS 用它算出刚好放得下一行的字号——数字永远不折行，滚动、实时增长时卡片高度也不会跳。
+ */
+export function heroWidth(int, dec, unit) {
+  const w = (t) => [...t].reduce((n, c) => n + (c >= '0' && c <= '9' ? 0.52 : 0.28), 0);
+  return w(int) + (dec ? 0.5 * w(`.${dec}`) : 0) + 0.36 + (unit === 'wan' ? 0.45 : 0) + 0.08;
+}
+
 /** 首页大数字：货币符号与小数部分缩小，整数部分最醒目。 */
 export function heroAmount(fen, unit, { dim = false } = {}) {
   const text = formatDecimal(Math.abs(fen), unit);
   const [int, dec] = text.split('.');
   return h(
     'div',
-    { class: ['hero', dim && 'dim'], 'aria-label': formatMoney(fen, unit) },
+    { class: ['hero', dim && 'dim'], 'aria-label': formatMoney(fen, unit), style: `--w:${heroWidth(int, dec, unit).toFixed(2)}` },
     fen < 0 ? '−' : '',
     h('span', { class: 'cur' }, '¥'),
     h('span', { class: 'int' }, int),
