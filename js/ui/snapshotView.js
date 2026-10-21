@@ -4,7 +4,7 @@ import { stamp } from './components.js';
 import { catIcon, catSlotClass, deltaSpan, heroAmount } from './fmt.js';
 import { formatMoney } from '../core/money.js';
 import { hasValue, knownIds, shares } from '../core/ledger.js';
-import { groupKey, sortedCategories } from '../core/model.js';
+import { groupKey, groupName, sortedCategories } from '../core/model.js';
 
 /**
  * 一条记录里要展示的类别：应有的 ∪ 有金额的，按类别顺序。
@@ -111,7 +111,7 @@ export function accountRows({ snap, categories, unit, cmp = null, group = false,
           'div',
           { class: 'acc group' },
           catIcon(root, categories),
-          h('div', { class: 'acc-main' }, h('div', { class: 'acc-name' }, root.name), h('div', { class: 'acc-sub' }, dfen ? deltaSpan(dfen, prev ? dfen / Math.abs(prev) : null, unit) : null, h('span', { class: 'fxnote' }, `${members.length} 个账户`))),
+          h('div', { class: 'acc-main' }, h('div', { class: 'acc-name' }, groupName(members[0], categories)), h('div', { class: 'acc-sub' }, dfen ? deltaSpan(dfen, prev ? dfen / Math.abs(prev) : null, unit) : null, h('span', { class: 'fxnote' }, `${members.length} 个账户`))),
           h('div', { class: 'acc-val' }, h('div', { class: 'v num' }, known.length ? formatMoney(sum, unit) : h('span', { class: 'dash', 'aria-label': '未记录' })), share ? h('div', { class: 's num' }, shareText(share)) : null),
         ),
       );

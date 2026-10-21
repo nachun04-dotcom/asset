@@ -227,7 +227,7 @@ export function buildSettings(ctx, opts = {}) {
     id: 'categories',
     title: '账户与类别',
     sub: '点账户可编辑，按住 ≡ 拖动排序。',
-    sig: (st) => JSON.stringify(sortedCategories(st.categories).map((c) => [c.id, c.name, c.enabled, c.colorSlot, c.icon ?? null, !!c.debt, c.group ?? null])) + st.snapshots.length,
+    sig: (st) => JSON.stringify(sortedCategories(st.categories).map((c) => [c.id, c.name, c.enabled, c.colorSlot, c.icon ?? null, !!c.debt, c.group ?? null, c.groupName ?? null])) + st.snapshots.length,
     build: () => {
       // 新增：先选「资产 / 负债」，再填名字
       const kind = seg([{ value: 'asset', label: '资产' }, { value: 'debt', label: '负债' }], addKind, (v) => {

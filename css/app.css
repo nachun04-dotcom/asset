@@ -1008,8 +1008,11 @@ html.kb-open .sheet-foot { padding-top: 10px; }
 .sort-list.grouped .sort-group.dragging { border-radius: 14px; }
 /* 多账户的大类：单独一行标题（和首页一样），下面列出全部账户 */
 .grp-head { display: flex; align-items: center; gap: 13px; min-height: 58px; padding: 10px 6px 6px 16px; }
-.grp-name { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 8px; font-family: var(--font-serif); font-size: 16.5px; font-weight: 600; letter-spacing: 0.06em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--ink); }
-.grp-count { flex: none; font-family: inherit; font-size: 12px; font-weight: 400; letter-spacing: 0.02em; color: var(--ink-3); }
+.grp-name { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; min-height: 40px; margin: -4px 0; padding: 0 4px; border: 0; border-radius: 10px; background: none; text-align: left; color: var(--ink); }
+.grp-name .gn { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 600 16.5px/1.3 var(--font-serif); letter-spacing: 0.06em; }
+.grp-name > svg { flex: none; color: var(--ink-3); opacity: 0.8; }
+.grp-name:active { background: var(--sunk); }
+.grp-count { flex: none; margin-left: 2px; font-size: 12px; font-weight: 400; letter-spacing: 0.02em; color: var(--ink-3); }
 .sort-children { margin-bottom: 8px; }
 
 /* ---------- 记一笔：同类账户归成一组（与首页、设置一致），小巧不占地方 ---------- */

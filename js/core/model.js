@@ -84,8 +84,14 @@ const ICON_GUESS = [
 export function iconKeyFor(cat, categories = []) {
   if (!cat) return 'wallet';
   if (isIconKey(cat.icon)) return cat.icon;
-  const root = cat.group ? categories.find((c) => c.id === cat.group) : null;
-  if (root && root !== cat) return iconKeyFor(root, categories);
+  // 没选过图标的同类账户：沿用大类里最早那个账户的图标；它被删了，就用大类里第一个选过图标的
+  if (cat.group && cat.group !== cat.id) {
+    const mates = sortedCategories(categories).filter((c) => c.id !== cat.id && groupKey(c) === cat.group);
+    const first = mates.find((c) => c.id === cat.group);
+    if (first) return iconKeyFor({ ...first, group: undefined }, categories);
+    const picked = mates.find((c) => isIconKey(c.icon));
+    if (picked) return picked.icon;
+  }
   if (DEFAULT_ICON_BY_ID[cat.id]) return DEFAULT_ICON_BY_ID[cat.id];
   for (const [re, key] of ICON_GUESS) if (re.test(cat.name ?? '')) return key;
   return 'l-wallet';
@@ -120,9 +126,47 @@ export function nextColorSlot(categories, preferred = null) {
   return Number.isInteger(preferred) && preferred >= 0 && preferred < CATEGORY_COLOR_SLOTS ? preferred : CATEGORY_COLOR_SLOTS;
 }
 
-/** 同类账户的归属：没有 group 的类别自己就是一类的「根」。 */
+/**
+ * 同类账户（大类）：成员都带同一个 group 键和同一个 groupName（大类自己的名字）。
+ * 大类名字和任何一个账户的名字互不影响——改账户名不会改大类名，删掉任何一个账户也不会拆散大类。
+ * 没有 group 的类别自己就是一类。
+ */
 export function groupKey(cat) {
   return cat.group || cat.id;
+}
+
+/** 大类的名字：成员里存的 groupName；旧数据没有时退回「键对应的那个账户」的名字，再退回自己的名字。 */
+export function groupName(cat, categories = []) {
+  if (!cat) return '';
+  const key = groupKey(cat);
+  const members = categories.filter((c) => groupKey(c) === key);
+  const named = [cat, ...members].find((c) => typeof c.groupName === 'string' && c.groupName.trim());
+  if (named) return cleanName(named.groupName);
+  return cleanName((categories.find((c) => c.id === key) ?? cat).name);
+}
+
+/**
+ * 整理大类数据（读取、恢复备份、保存时都会走一遍）：
+ * 同一大类的每个成员都写上相同的 group 和 groupName（旧数据里「根」账户没有 group、大类名借用根的名字，这里一次性固定下来）。
+ * 只剩一个成员的大类保留这两个字段（之后再添加同类账户时沿用原来的大类名），显示时按单个账户处理。
+ */
+export function normalizeGroups(categories) {
+  const byKey = new Map();
+  for (const c of categories) {
+    const k = groupKey(c);
+    if (!byKey.has(k)) byKey.set(k, []);
+    byKey.get(k).push(c);
+  }
+  return categories.map((c) => {
+    const k = groupKey(c);
+    const members = byKey.get(k);
+    const grouped = members.length > 1 || !!c.group;
+    if (!grouped) {
+      const { group, groupName: _g, ...rest } = c;
+      return rest;
+    }
+    return { ...c, group: k, groupName: groupName(c, categories).slice(0, 20) };
+  });
 }
 
 /** 这一类下有几个账户（含自己）。 */
@@ -133,8 +177,8 @@ export function groupMembers(categories, cat) {
 
 /** 为「添加同类账户」建议一个不重名的名字：支付宝 → 支付宝 2 → 支付宝 3 … */
 export function suggestSiblingName(categories, baseCat) {
-  const root = categories.find((c) => c.id === groupKey(baseCat)) ?? baseCat;
-  const base = cleanName(root.name).replace(/\s*[#＃]?\d+$/, '') || cleanName(root.name);
+  const gname = groupName(baseCat, categories);
+  const base = gname.replace(/\s*[#＃]?\d+$/, '') || gname;
   const taken = new Set(categories.map((c) => nameKey(c.name)));
   for (let n = 2; n < 1000; n++) {
     const name = `${base} ${n}`;

@@ -1,9 +1,9 @@
 // 账户（类别）管理：编辑面板（改名 / 负债 / 启用 / 图标 / 删除）、拖拽排序、分组图标选择器。设置页和「记一笔」共用。
 import { h, icon } from './dom.js';
-import { button, confirmDialog, openSheet, switchControl, toast } from './components.js';
+import { button, confirmDialog, openSheet, promptDialog, switchControl, toast } from './components.js';
 import { catIcon, catSlotClass, iconGlyph } from './fmt.js';
 import { ICONSET, ICON_GROUPS } from './iconset.js';
-import { CATEGORY_ICON_KEYS, cleanName, iconKeyFor, sortedCategories } from '../core/model.js';
+import { CATEGORY_ICON_KEYS, cleanName, groupKey, groupName, iconKeyFor, sortedCategories } from '../core/model.js';
 import { toggleDebt } from './categoryActions.js';
 
 const CLASSIC_LABELS = { wallet: '钱包', chat: '聊天', card: '银行卡', bank: '银行', cash: '现金', coin: '硬币', bitcoin: '数字货币', safe: '保险柜', trend: '走势', chart: '柱状图', sprout: '理财', gem: '贵金属', box: '货物', cart: '购物', briefcase: '公文包', home: '房产', car: '汽车', globe: '海外', receipt: '账单', shield: '保障', heart: '健康', star: '星标', pie: '组合', phone: '手机' };
@@ -100,10 +100,9 @@ export function makeSortable(list, onSort) {
  * 小类只能在自己所属的大类里面上下调换。松手后按「大类 → 它的小类」的顺序保存。
  * renderRow(cat, isChild) 画一行（行里要有 .drag-handle）；返回整个列表元素。
  */
-export function groupedSortable(store, renderRow, { className = '' } = {}) {
+export function groupedSortable(store, renderRow, { className = '', onChange } = {}) {
   const cats = sortedCategories(store.state.categories);
-  const ids = new Set(cats.map((c) => c.id));
-  const keyOf = (c) => (c.group && ids.has(c.group) ? c.group : c.id);
+  const keyOf = groupKey;
   // 和首页一样：只有一个账户的类别就是一行；有多个账户的类别，先是一行类别标题，下面列出它的全部账户（包括同名的第一个）
   const groups = [];
   const byKey = new Map();
@@ -128,11 +127,15 @@ export function groupedSortable(store, renderRow, { className = '' } = {}) {
   for (const k of groups) {
     const members = byKey.get(k);
     if (members.length === 1) {
-      outer.appendChild(h('div', { class: 'sort-group', 'data-id': k }, renderRow(members[0], false)));
+      // data-id 必须是账户自己的 id（保存顺序时按它找账户；用大类键会找不到，账户就丢了）
+      outer.appendChild(h('div', { class: 'sort-group', 'data-id': members[0].id }, renderRow(members[0], false)));
       continue;
     }
-    const root = cats.find((c) => c.id === k) ?? members[0];
-    const head = h('div', { class: 'grp-head' }, catIcon(root, store.state.categories, { size: 32 }), h('span', { class: 'grp-name' }, root.name, h('span', { class: 'grp-count' }, `${members.length} 个账户`)), dragHandle(`${root.name}这一组`));
+    // 大类标题：图标用大类里第一个账户的；名字是大类自己的，点一下单独改名（不影响下面任何账户）
+    const gname = groupName(members[0], store.state.categories);
+    const nameBtn = h('button', { type: 'button', class: 'grp-name', 'aria-label': `大类「${gname}」：改名` }, h('span', { class: 'gn' }, gname), icon('edit', { size: 14, stroke: 1.9 }), h('span', { class: 'grp-count' }, `${members.length} 个账户`));
+    nameBtn.addEventListener('click', async () => (await renameGroup(store, k)) && onChange?.());
+    const head = h('div', { class: 'grp-head' }, catIcon(members[0], store.state.categories, { size: 32 }), nameBtn, dragHandle(`${gname}这一组`));
     const inner = h('div', { class: 'sort-children' });
     for (const m of members) {
       const row = renderRow(m, true);
@@ -146,12 +149,31 @@ export function groupedSortable(store, renderRow, { className = '' } = {}) {
   return outer;
 }
 
+/** 给大类改名：只改大类，不改下面任何一个账户。 */
+export async function renameGroup(store, key) {
+  const member = store.state.categories.find((c) => groupKey(c) === key);
+  if (!member) return false;
+  const now = groupName(member, store.state.categories);
+  const name = await promptDialog({
+    title: '大类名称',
+    message: '只改大类的名字，下面各个账户的名字不变。',
+    value: now,
+    maxlength: 20,
+    confirmText: '保存',
+    validate: (v) => (cleanName(v) ? '' : '名称不能为空'),
+  });
+  if (name == null || cleanName(name) === now) return false;
+  const r = await store.renameGroup(key, name);
+  toast(r.ok ? `大类已改名为「${cleanName(name)}」` : r.message);
+  return r.ok;
+}
+
 export const dragHandle = (name) => h('span', { class: 'drag-handle', role: 'button', 'aria-label': `按住拖动「${name}」调整顺序`, title: '按住拖动排序' }, icon('grip', { size: 20, stroke: 1.8 }));
 
 /** 拖拽排序抽屉：「记一笔」里用，也可从别处打开。 */
 export function openReorderSheet(store, { onDone } = {}) {
   const wrap = h('div', {});
-  const draw = () => wrap.replaceChildren(groupedSortable(store, (c, child) => h('div', { class: ['sort-row', !c.enabled && 'off', child && 'child'] }, catIcon(c, store.state.categories, { size: child ? 28 : 32 }), h('span', { class: 'cat-nm' }, c.name, c.debt ? h('span', { class: 'tag debt' }, '负债') : null, c.enabled ? null : h('span', { class: 'tag' }, '已停用')), dragHandle(c.name))));
+  const draw = () => wrap.replaceChildren(groupedSortable(store, (c, child) => h('div', { class: ['sort-row', !c.enabled && 'off', child && 'child'] }, catIcon(c, store.state.categories, { size: child ? 28 : 32 }), h('span', { class: 'cat-nm' }, c.name, c.debt ? h('span', { class: 'tag debt' }, '负债') : null, c.enabled ? null : h('span', { class: 'tag' }, '已停用')), dragHandle(c.name)), { onChange: () => draw() }));
   draw();
   const sheet = openSheet({
     title: '调整顺序',
@@ -214,6 +236,7 @@ export async function confirmDeleteCategory(store, id) {
 export function openCategoryEditor(store, id, { onChange } = {}) {
   const sheet = openSheet({ title: '编辑账户', auto: true, body: null, onClose: () => onChange?.() });
   const current = () => sortedCategories(store.state.categories);
+  const inGroup = (cat) => store.state.categories.filter((c) => groupKey(c) === groupKey(cat)).length > 1;
   const draw = () => {
     const cat = store.state.categories.find((c) => c.id === id);
     if (!cat) return sheet.close();
@@ -269,6 +292,10 @@ export function openCategoryEditor(store, id, { onChange } = {}) {
         h(
           'div',
           { class: 'list' },
+          // 在多账户的大类里：显示所属大类，点一下给大类改名（和这个账户的名字互不影响）
+          inGroup(cat)
+            ? h('button', { type: 'button', class: 'item', onClick: async () => (await renameGroup(store, groupKey(cat))) && draw() }, h('span', { class: 'grow' }, h('div', { class: 'title' }, '所属大类'), h('div', { class: 'meta' }, '点这里改大类名，账户名不变')), h('span', { class: 'muted' }, groupName(cat, store.state.categories)), icon('chevronR', { size: 18 }))
+            : null,
           h('div', { class: 'setting' }, h('div', { class: 'grow' }, h('div', {}, '启用'), h('div', { class: 'desc' }, '关掉后不再显示，历史数据保留')), enableSw),
           h('div', { class: 'setting' }, h('div', { class: 'grow' }, h('div', {}, '这是负债'), h('div', { class: 'desc' }, '填欠款金额，自动从资产中扣除')), debtSw),
         ),

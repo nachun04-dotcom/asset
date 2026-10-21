@@ -1,5 +1,5 @@
 // 应用状态与全部写操作。界面只通过这里读写数据；每个写操作先落盘、成功后才更新内存状态。
-import { DEFAULT_CATEGORIES, DEFAULT_SETTINGS, cleanName, enabledCategories, groupKey, isIconKey, nameKey, newId, nextColorSlot, sortedCategories } from '../core/model.js';
+import { DEFAULT_CATEGORIES, DEFAULT_SETTINGS, cleanName, enabledCategories, groupKey, groupName, isIconKey, nameKey, newId, nextColorSlot, normalizeGroups, sortedCategories } from '../core/model.js';
 import { finalizeSnapshot, findByDate, hasValue } from '../core/ledger.js';
 import { checkSnapshot } from '../core/anomalies.js';
 import { isISODate } from '../core/date.js';
@@ -45,6 +45,12 @@ export function createStore(repo, env = {}) {
       }
       const settings = { ...DEFAULT_SETTINGS, ...(kv.settings ?? {}) };
       const meta = { lastBackupAt: kv.lastBackupAt ?? null, lockCredential: kv.lockCredential ?? null, persisted: kv.persisted ?? null, preRestore: kv.preRestore ?? null };
+      // 旧数据：把大类名字固定下来（以前借用第一个账户的名字，改账户名会连带改大类名）
+      const fixed = normalizeGroups(categories);
+      if (JSON.stringify(fixed) !== JSON.stringify(categories)) {
+        categories = fixed;
+        await repo.setKV('categories', categories).catch(() => {});
+      }
       set({ ready: true, snapshots, categories, settings, meta, locked: !!(settings.lockEnabled && meta.lockCredential) });
       return state;
     },
@@ -125,7 +131,7 @@ export function createStore(repo, env = {}) {
         names.add(nameKey(n));
       }
       if (!list.some((c) => c.enabled)) return fail('NONE_ENABLED', '至少要启用一个类别');
-      const next = list.map((c, i) => ({ id: c.id, name: cleanName(c.name), enabled: !!c.enabled, order: i, colorSlot: c.colorSlot, ...(c.group ? { group: c.group } : {}), ...(isIconKey(c.icon) ? { icon: c.icon } : {}), ...(c.debt ? { debt: true } : {}) }));
+      const next = normalizeGroups(list.map((c, i) => ({ id: c.id, name: cleanName(c.name), enabled: !!c.enabled, order: i, colorSlot: c.colorSlot, ...(c.group ? { group: c.group } : {}), ...(c.group && cleanName(c.groupName) ? { groupName: cleanName(c.groupName).slice(0, 20) } : {}), ...(isIconKey(c.icon) ? { icon: c.icon } : {}), ...(c.debt ? { debt: true } : {}) })));
       try {
         await repo.setKV('categories', next);
       } catch (e) {
@@ -147,12 +153,28 @@ export function createStore(repo, env = {}) {
       // 同类账户沿用「负债」属性（例如第二张信用卡）
       const cat = { id: newId('c'), name: n, enabled: true, colorSlot: nextColorSlot(list, base?.colorSlot), ...(debt || base?.debt ? { debt: true } : {}) };
       let at = list.length;
+      let all = list;
       if (base) {
-        cat.group = groupKey(base);
-        at = list.reduce((last, c, i) => (groupKey(c) === cat.group ? i : last), -1) + 1;
+        // 加入大类：大类名字在这一刻固定下来，之后改哪个账户的名字都不影响它
+        const key = groupKey(base);
+        const gname = groupName(base, list);
+        cat.group = key;
+        cat.groupName = gname;
+        all = list.map((c) => (groupKey(c) === key ? { ...c, group: key, groupName: gname } : c));
+        at = all.reduce((last, c, i) => (groupKey(c) === key ? i : last), -1) + 1;
       }
-      const r = await store.saveCategories([...list.slice(0, at), cat, ...list.slice(at)]);
+      const r = await store.saveCategories([...all.slice(0, at), cat, ...all.slice(at)]);
       return r.ok ? { ...r, category: { ...cat } } : r;
+    },
+
+    /** 给大类改名（只改大类，不动下面任何一个账户的名字）。 */
+    async renameGroup(key, name) {
+      const n = cleanName(name);
+      if (!n) return fail('EMPTY_NAME', '大类名称不能为空');
+      if (n.length > 20) return fail('TOO_LONG', '大类名称最多 20 个字');
+      const list = sortedCategories(state.categories);
+      if (!list.some((c) => groupKey(c) === key)) return fail('NO_SUCH_GROUP', '找不到这个大类');
+      return store.saveCategories(list.map((c) => (groupKey(c) === key ? { ...c, group: key, groupName: n } : c)));
     },
 
     /**
@@ -191,14 +213,12 @@ export function createStore(repo, env = {}) {
     /**
      * 删除类别。没有金额的直接删；已有金额的，需要 withRecords:true，
      * 会把它从所有记录里一并移除（这些记录的合计随之变化），然后重新判断每条记录是否完整。
-     * 同类账户的「根」被删时，其余同类账户改为独立账户。
+     * 删掉大类里任何一个账户（包括最早那个），其余账户仍在原来的大类里，大类名字不变。
      */
     async deleteCategory(id, { withRecords = false } = {}) {
       const touched = state.snapshots.filter((s) => s.entries[id] || (s.expectedIds ?? []).includes(id));
       if (touched.some((s) => hasValue(s.entries[id])) && !withRecords) return fail('IN_USE', '这个类别已有记录金额');
-      const rest = sortedCategories(state.categories)
-        .filter((c) => c.id !== id)
-        .map((c) => (c.group === id ? { ...c, group: undefined } : c));
+      const rest = sortedCategories(state.categories).filter((c) => c.id !== id);
       if (!rest.some((c) => c.enabled)) return fail('NONE_ENABLED', '至少要保留一个启用的类别');
       const now = nowIso();
       const changed = touched.map((s) => {

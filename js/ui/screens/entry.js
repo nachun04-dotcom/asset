@@ -6,7 +6,7 @@ import { alertDialog, button, confirmDialog, noteBox, openSheet, promptDialog, s
 import { catIcon, compactYuan } from '../fmt.js';
 import { formatDecimal, formatMoney, formatSigned, parseAmount } from '../../core/money.js';
 import { dayDiff, formatDateZh, isISODate, relativeDaysZh, todayISO } from '../../core/date.js';
-import { cleanName, enabledCategories, groupKey, isDebt, nameKey, sortedCategories, suggestSiblingName } from '../../core/model.js';
+import { cleanName, enabledCategories, groupKey, groupName, isDebt, nameKey, sortedCategories, suggestSiblingName } from '../../core/model.js';
 import { findByDate, hasValue, isComplete, recordedTotal, sortDesc } from '../../core/ledger.js';
 import { displayCategories } from '../snapshotView.js';
 import { confirmDeleteCategory, dragHandle, groupedSortable, openCategoryEditor } from '../categoryEditor.js';
@@ -20,7 +20,7 @@ const showAmount = (fen, unit) => formatDecimal(fen, unit);
 function groupsOf(cats) {
   const map = new Map();
   for (const c of cats) {
-    const k = groupKey(c);
+    const k = `${groupKey(c)}${isDebt(c) ? ':debt' : ''}`; // 同一大类里资产、负债分开，各进各的卡片
     if (!map.has(k)) map.set(k, []);
     map.get(k).push(c);
   }
@@ -170,7 +170,7 @@ export function openEntry(ctx, { id = null, date = null } = {}) {
   }
 
   const catName = (cid) => store.state.categories.find((c) => c.id === cid)?.name ?? cid;
-  const rootName = (cat) => store.state.categories.find((c) => c.id === groupKey(cat))?.name ?? cat.name;
+  const rootName = (cat) => groupName(cat, store.state.categories);
 
   /* ------------------------------ 「上次」 ------------------------------ */
 
@@ -526,7 +526,7 @@ export function openEntry(ctx, { id = null, date = null } = {}) {
         }
       });
       return h('div', { class: ['m-row', !c.enabled && 'off', child && 'child'] }, iconBtn, h('div', { class: 'm-main' }, name, h('div', { class: 'm-tags' }, isDebt(c) ? h('span', { class: 'tag debt' }, '负债') : null, c.enabled ? null : h('span', { class: 'tag' }, '已停用'))), delBtn, dragHandle(c.name));
-    }, { className: 'manage-list' });
+    }, { className: 'manage-list', onChange: rebuild });
     const newName = h('input', { type: 'text', placeholder: addKind === 'debt' ? '新负债，如「信用卡」「花呗」' : '新账户，如「基金」「现金」', maxlength: 20, 'aria-label': '新账户名称', enterkeyhint: 'done' });
     const kind = seg([{ value: 'asset', label: '资产' }, { value: 'debt', label: '负债' }], addKind, (v) => {
       addKind = v;
@@ -598,10 +598,10 @@ export function openEntry(ctx, { id = null, date = null } = {}) {
     const rowsOf = (g) => {
       const rows = g.map((c) => buildRow(c, { idx: flat.indexOf(c), n: flat.length }));
       if (g.length < 2) return rows;
-      const root = store.state.categories.find((c) => c.id === groupKey(g[0])) ?? g[0];
+      const gname = groupName(g[0], store.state.categories);
       const sum = h('span', { class: 'gc-sum num' });
       ui.grpSums.push({ sum, ids: g.map((c) => c.id) });
-      return [h('div', { class: 'acct-grp', role: 'group', 'aria-label': `${root.name}，${g.length} 个账户` }, h('div', { class: 'grp-cap' }, h('span', { class: 'gc-name' }, root.name), h('span', { class: 'gc-n' }, String(g.length)), sum), ...rows)];
+      return [h('div', { class: 'acct-grp', role: 'group', 'aria-label': `${gname}，${g.length} 个账户` }, h('div', { class: 'grp-cap' }, h('span', { class: 'gc-name' }, gname), h('span', { class: 'gc-n' }, String(g.length)), sum), ...rows)];
     };
     const card = (gs) => h('div', { class: 'acct-card' }, ...gs.flatMap(rowsOf));
     const assetGroups = groups.filter((g) => !isDebt(g[0]));
