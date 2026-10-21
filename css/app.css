@@ -1011,3 +1011,32 @@ html.kb-open .sheet-foot { padding-top: 10px; }
 .grp-name { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 8px; font-family: var(--font-serif); font-size: 16.5px; font-weight: 600; letter-spacing: 0.06em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--ink); }
 .grp-count { flex: none; font-family: inherit; font-size: 12px; font-weight: 400; letter-spacing: 0.02em; color: var(--ink-3); }
 .sort-children { margin-bottom: 8px; }
+
+/* ---------- 记一笔：同类账户归成一组（与首页、设置一致），小巧不占地方 ---------- */
+.acct-grp { margin: 6px -8px; padding: 0 8px; border-radius: 14px; background: color-mix(in srgb, var(--gold) 7%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--gold) 16%, transparent); }
+.acct-card > .acct-grp:first-child { margin-top: 8px; }
+.acct-card > .acct-grp:last-child { margin-bottom: 8px; }
+.acct-grp + .acct, .acct-grp .grp-cap + .acct { border-top: 0 !important; }
+.acct-grp .acct + .acct { border-top-color: color-mix(in srgb, var(--gold) 20%, transparent); }
+.grp-cap { display: flex; align-items: center; gap: 6px; height: 28px; padding: 6px 2px 0; font-size: 12px; color: var(--ink-3); }
+.gc-name { font: 600 13px/1 var(--font-serif); letter-spacing: 0.1em; color: var(--gold-text); }
+.gc-n { display: inline-grid; place-items: center; min-width: 17px; height: 17px; padding: 0 5px; border-radius: 99px; background: color-mix(in srgb, var(--gold) 16%, transparent); color: var(--gold-text); font-size: 10.5px; font-weight: 600; line-height: 1; }
+.gc-sum { margin-left: auto; padding-right: 30px; font-size: 12px; letter-spacing: 0.02em; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.acct-grp .acct.line { padding: 8px 0; }
+
+/* ---------- 键盘弹出时：标题栏和底栏都收成细细一条 ---------- */
+.kb-bar { display: none; }
+html.kb-open .entry-sheet .entry-foot > :not(.kb-bar) { display: none; }
+html.kb-open .entry-sheet .kb-bar { display: flex; align-items: center; gap: 10px; min-height: 40px; }
+html.kb-open .entry-sheet .sheet-foot { padding: 6px 12px 6px 18px; }
+.kb-bar .kp { font-size: 12px; color: var(--ink-3); letter-spacing: 0.04em; white-space: nowrap; }
+.kb-bar .ks { flex: 1; min-width: 0; text-align: right; font: 400 17px/1.2 var(--font-display); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kb-save { flex: none; height: 36px; padding: 0 18px; border: 0; border-radius: 99px; background: var(--brand); color: var(--brand-ink); font-size: 14.5px; font-weight: 600; letter-spacing: 0.12em; }
+.kb-save.off { opacity: 0.42; }
+html.kb-open .entry-sheet { height: calc(var(--vvh, 100dvh) - 4px); border-radius: 18px 18px 0 0; }
+html.kb-open .entry-sheet .sheet-head { padding: 4px 6px 0 18px; }
+html.kb-open .entry-sheet .sheet-head::before { display: none; }
+html.kb-open .entry-sheet .sheet-title { padding-top: 0; font-size: 16px; }
+html.kb-open .entry-sheet .sheet-head .icon-btn, html.kb-open .entry-sheet .head-btn { transform: scale(0.88); }
+html.kb-open .entry-sheet .sheet-body { padding-top: 6px; }
+html.kb-open .toasts { bottom: calc(var(--kb, 0px) + 64px); }

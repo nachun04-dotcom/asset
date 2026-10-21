@@ -91,12 +91,21 @@ function trackViewport() {
   const vv = window.visualViewport;
   let lastKb = 0;
   let lastH = vv ? vv.height : window.innerHeight;
+  // 安卓（interactive-widget=resizes-content）键盘弹出时整页变矮、--kb 为 0：改用「比平时最高时矮了一大截 + 正在输入」来判断
+  let fullH = lastH;
+  let lastW = window.innerWidth;
+  const typing = () => !!document.activeElement?.matches?.('input:not([type=checkbox]):not([type=date]), textarea');
   const update = () => {
     const vh = vv ? vv.height : window.innerHeight;
     const kb = vv ? Math.max(0, window.innerHeight - vv.height - vv.offsetTop) : 0;
+    if (window.innerWidth !== lastW) {
+      lastW = window.innerWidth; // 横竖屏切换：重新记最高高度
+      fullH = vh;
+    }
+    fullH = Math.max(fullH, vh);
     root.style.setProperty('--vvh', `${Math.round(vh)}px`);
     root.style.setProperty('--kb', `${Math.round(kb)}px`);
-    root.classList.toggle('kb-open', kb > 80);
+    root.classList.toggle('kb-open', kb > 80 || (fullH - vh > 150 && typing()));
     // 只在「键盘刚升起」的那一刻检查一次（iOS 看 --kb，安卓看可见高度骤减）；
     // 键盘开着时的普通滚动不再触发自动滚动，否则会和手指抢着滚
     const opening = (kb > 80 && lastKb <= 80) || lastH - vh > 120;
@@ -107,6 +116,7 @@ function trackViewport() {
   vv?.addEventListener('resize', update);
   vv?.addEventListener('scroll', update);
   window.addEventListener('resize', update);
+  document.addEventListener('focusout', () => setTimeout(update, 60));
   // 记下手指最后一次滑动的时间：刚滑过就不自动滚，尊重用户自己的滚动
   document.addEventListener('touchmove', () => (lastTouchMove = Date.now()), { passive: true });
   update();

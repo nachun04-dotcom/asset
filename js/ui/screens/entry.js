@@ -32,6 +32,30 @@ const keepFocus = (el) => {
   return el;
 };
 
+/* 草稿：没保存就关掉也不会丢，下次打开同一条（新记录 / 某条旧记录）时自动恢复。只存在这台手机的浏览器里。 */
+const DRAFT_KEY = 'asset-entry-drafts';
+function readDrafts() {
+  try {
+    const d = JSON.parse(localStorage.getItem(DRAFT_KEY) || '{}');
+    return d && typeof d === 'object' ? d : {};
+  } catch {
+    return {};
+  }
+}
+function writeDrafts(d) {
+  try {
+    if (Object.keys(d).length) localStorage.setItem(DRAFT_KEY, JSON.stringify(d));
+    else localStorage.removeItem(DRAFT_KEY);
+    return true;
+  } catch {
+    return false;
+  }
+}
+const isoOf = (t) => {
+  const d = new Date(t);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+
 export function openEntry(ctx, { id = null, date = null } = {}) {
   const { store, nav } = ctx;
   const initial = id ? store.state.snapshots.find((s) => s.id === id) : null;
@@ -63,6 +87,46 @@ export function openEntry(ctx, { id = null, date = null } = {}) {
     }
   };
   fillRows(initial);
+
+  /* ------------------------------ 草稿 ------------------------------ */
+
+  const draftKey = () => st.id ?? 'new';
+  let draftOk = true;
+  function flushDraft() {
+    clearTimeout(flushDraft.t);
+    const d = readDrafts();
+    const rows = [...st.rows].filter(([, r]) => r.text.trim() || r.fxOn || r.cur.trim() || r.orig.trim());
+    if (!st.dirty || (!rows.length && !st.note.trim() && !st.id)) delete d[draftKey()];
+    else d[draftKey()] = { date: st.date, unit: st.unit, note: st.note, rows, at: Date.now() };
+    draftOk = writeDrafts(d);
+  }
+  const saveDraft = () => {
+    clearTimeout(flushDraft.t);
+    flushDraft.t = setTimeout(flushDraft, 300);
+  };
+  const dropDraft = (key = draftKey()) => {
+    clearTimeout(flushDraft.t);
+    const d = readDrafts();
+    delete d[key];
+    writeDrafts(d);
+  };
+  let restored = false;
+  {
+    const dr = readDrafts()[draftKey()];
+    const known = new Set(store.state.categories.map((c) => c.id));
+    if (dr && Array.isArray(dr.rows)) {
+      // 新记录：草稿那天记的是「当天」的话，过了一天就换成今天；手动选过的日期照旧
+      if (!st.id) st.date = date ?? (dr.date === isoOf(dr.at) ? todayISO() : dr.date || st.date);
+      if (dr.unit === 'yuan' || dr.unit === 'wan') st.unit = dr.unit;
+      for (const [cid, r] of dr.rows) if (known.has(cid) && r && typeof r.text === 'string') st.rows.set(cid, { ...newRow(), ...r });
+      st.note = typeof dr.note === 'string' ? dr.note : st.note;
+      st.dirty = true;
+      restored = true;
+    }
+  }
+  const onHide = () => document.visibilityState === 'hidden' && flushDraft();
+  document.addEventListener('visibilitychange', onHide);
+  window.addEventListener('pagehide', flushDraft);
 
   /* ------------------------------ 解析 ------------------------------ */
 
@@ -217,7 +281,15 @@ export function openEntry(ctx, { id = null, date = null } = {}) {
     // 「保存」不再变成真正的 disabled（那样点了毫无反应，也看不到原因）：看起来变淡，点了会说明为什么不能保存
     ui.blocked = reason || (ev.count === 0 ? '先填至少一个账户的金额' : '');
     ui.save.classList.toggle('off', !!ui.blocked);
+    ui.kbSave.classList.toggle('off', !!ui.blocked);
     ui.save.setAttribute('aria-disabled', String(!!ui.blocked));
+    for (const { sum, ids } of ui.grpSums ?? []) {
+      const got = ids.filter((cid) => ev.entries[cid]);
+      sum.textContent = got.length ? formatMoney(Math.abs(got.reduce((n, cid) => n + ev.entries[cid].fen, 0)), st.unit) : '';
+    }
+    ui.kbSum.textContent = ev.count === 0 ? '' : formatMoney(ev.total, st.unit);
+    ui.kbProg.textContent = ui.progress.textContent;
+    if (st.dirty) saveDraft();
     return ev;
   }
 
@@ -244,6 +316,7 @@ export function openEntry(ctx, { id = null, date = null } = {}) {
 
   async function loadOther(other) {
     if (st.dirty && !(await confirmDialog({ title: '载入这条记录？', message: '你现在填写的内容会被它替换。', confirmText: '载入', cancelText: '先不用' }))) return;
+    dropDraft();
     st.id = other.id;
     st.date = other.date;
     st.note = other.note ?? '';
@@ -533,8 +606,18 @@ export function openEntry(ctx, { id = null, date = null } = {}) {
     ui.future = h('div', { class: 'mini', hidden: true }, icon('warn', { size: 14 }), '日期在今天之后，请确认没有选错');
     ui.dup = h('div', { class: 'notes', hidden: true });
 
-    // 资产一张卡片、负债一张卡片，账户之间用细线分隔，紧凑好扫
-    const card = (gs) => h('div', { class: 'acct-card' }, ...gs.flat().map((c) => buildRow(c, { idx: flat.indexOf(c), n: flat.length })));
+    // 资产一张卡片、负债一张卡片，账户之间用细线分隔，紧凑好扫。
+    // 同一大类有多个账户（如 3 个支付宝）时和首页一样归成一组：浅金底色 + 一行小标题（名称 · 个数 · 小计）
+    ui.grpSums = [];
+    const rowsOf = (g) => {
+      const rows = g.map((c) => buildRow(c, { idx: flat.indexOf(c), n: flat.length }));
+      if (g.length < 2) return rows;
+      const root = store.state.categories.find((c) => c.id === groupKey(g[0])) ?? g[0];
+      const sum = h('span', { class: 'gc-sum num' });
+      ui.grpSums.push({ sum, ids: g.map((c) => c.id) });
+      return [h('div', { class: 'acct-grp', role: 'group', 'aria-label': `${root.name}，${g.length} 个账户` }, h('div', { class: 'grp-cap' }, h('span', { class: 'gc-name' }, root.name), h('span', { class: 'gc-n' }, String(g.length)), sum), ...rows)];
+    };
+    const card = (gs) => h('div', { class: 'acct-card' }, ...gs.flatMap(rowsOf));
     const assetGroups = groups.filter((g) => !isDebt(g[0]));
     const debtGroups = groups.filter((g) => isDebt(g[0]));
     const cards = [...(assetGroups.length ? [card(assetGroups)] : []), ...(debtGroups.length ? [h('div', { class: 'list-label' }, '负债'), card(debtGroups)] : [])];
@@ -544,6 +627,7 @@ export function openEntry(ctx, { id = null, date = null } = {}) {
     note.addEventListener('input', () => {
       st.note = note.value;
       st.dirty = true;
+      saveDraft();
     });
     const noteWrap = h('div', { class: 'note-wrap', hidden: !st.note }, note);
     const addNote = h('button', { type: 'button', class: 'link-btn', hidden: !!st.note, onClick: () => {
@@ -559,6 +643,7 @@ export function openEntry(ctx, { id = null, date = null } = {}) {
           const r = await store.deleteSnapshot(snap.id);
           if (!r.ok) return alertDialog({ title: '删除失败', message: r.message });
           st.dirty = false;
+          dropDraft();
           await sheet.close();
           toast('已删除', { actionText: '撤销', onAction: async () => { const u = await store.undoDelete(); toast(u.ok ? '已恢复' : u.message); } });
         } }, icon('trash', { size: 16 }), '删除这条记录')
@@ -592,6 +677,7 @@ export function openEntry(ctx, { id = null, date = null } = {}) {
       return alertDialog({ title: res.code === 'DUP_DATE' ? '这一天已有记录' : '没有保存', message: res.message });
     }
     st.dirty = false;
+    dropDraft();
     const hints = res.issues.filter((i) => i.code !== 'INCOMPLETE');
     await sheet.close();
     const id2 = res.snapshot.id;
@@ -607,7 +693,12 @@ export function openEntry(ctx, { id = null, date = null } = {}) {
   ui.save = keepFocus(button('保存', save));
   ui.progress = h('span', { class: 'prog' });
   ui.bar = h('i', {});
-  const foot = h('div', { class: 'entry-foot' }, h('div', { class: 'fill-bar', 'aria-hidden': 'true' }, ui.bar), h('div', { class: 'sum', 'aria-live': 'polite' }, h('div', { class: 'cap' }, ui.lbl, ui.stamp, ui.progress), ui.big), ui.save, ui.msg);
+  // 键盘弹出时底栏换成一行：已填几项 · 合计 · 保存，把高度让给正在填的内容
+  ui.kbProg = h('span', { class: 'kp' });
+  ui.kbSum = h('span', { class: 'ks num' });
+  ui.kbSave = keepFocus(h('button', { type: 'button', class: 'kb-save', onClick: save }, '保存'));
+  const kbBar = h('div', { class: 'kb-bar' }, ui.kbProg, ui.kbSum, ui.kbSave);
+  const foot = h('div', { class: 'entry-foot' }, h('div', { class: 'fill-bar', 'aria-hidden': 'true' }, ui.bar), h('div', { class: 'sum', 'aria-live': 'polite' }, h('div', { class: 'cap' }, ui.lbl, ui.stamp, ui.progress), ui.big), ui.save, ui.msg, kbBar);
   ui.reuseSub = h('span', { class: 'rs' });
   ui.reuseTitle = h('span', { class: 'rt' }, '一键沿用上次金额');
   ui.reuse = h('button', { type: 'button', class: 'reuse-all', hidden: true, onClick: reuseAll }, h('span', { class: 'ra-ico' }, icon('repeat', { size: 18 })), h('span', { class: 'grow' }, ui.reuseTitle, ui.reuseSub), icon('chevronR', { size: 18 }));
@@ -616,11 +707,42 @@ export function openEntry(ctx, { id = null, date = null } = {}) {
     title: st.id ? '修改记录' : '记一笔',
     body: buildForm(),
     footer: foot,
-    beforeClose: async () => !st.dirty || confirmDialog({ title: '放弃修改？', message: '你填写的内容还没有保存。', confirmText: '放弃', cancelText: '继续编辑', danger: true }),
+    // 没保存就关掉：内容存成草稿，下次打开还在；只有存不了草稿（浏览器禁止本地存储）时才提醒
+    beforeClose: async () => {
+      if (!st.dirty) return true;
+      flushDraft();
+      if (draftOk) {
+        toast('已暂存，下次打开继续');
+        return true;
+      }
+      return confirmDialog({ title: '放弃修改？', message: '你填写的内容还没有保存。', confirmText: '放弃', cancelText: '继续编辑', danger: true });
+    },
+    onClose: () => {
+      document.removeEventListener('visibilitychange', onHide);
+      window.removeEventListener('pagehide', flushDraft);
+    },
   });
+  sheet.el.classList.add('entry-sheet');
   ui.manageBtn = h('button', { type: 'button', class: 'head-btn', onClick: () => setManage(!st.manage) }, '管理');
   const head = sheet.el.querySelector('.sheet-head');
   if (!head.querySelector('.head-btn')) head.insertBefore(ui.manageBtn, head.lastElementChild); // 已开着的记一笔不会再叠一个按钮
   recalc();
+  if (restored) {
+    toast('已恢复上次没保存的内容', {
+      actionText: '清空',
+      ms: 6000,
+      onAction: () => {
+        dropDraft();
+        const snap = current();
+        st.date = snap?.date ?? date ?? todayISO();
+        st.unit = store.state.settings.unit;
+        st.note = snap?.note ?? '';
+        fillRows(snap);
+        st.reusedCount = 0;
+        st.dirty = false;
+        rebuild();
+      },
+    });
+  }
   return sheet;
 }
