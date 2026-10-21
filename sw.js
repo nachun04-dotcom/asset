@@ -2,7 +2,7 @@
 // 策略：安装时把整个 App 存进本机缓存；之后一律先用缓存，所以断网、飞行模式下也能打开。
 // 不会请求任何其他网站；新版本下载好后立即接管缓存：正在打开的页面不会被强制刷新（不会在你录入到一半时换掉代码），
 // 页面会提示「立即更新」，不点的话下次打开就是新版。
-const VERSION = 'lux20261021d';
+const VERSION = 'lux20261021e';
 const CACHE = `asset-ledger-${VERSION}`;
 const CORE = [
   "./",
@@ -32,10 +32,12 @@ const CORE = [
   "./js/platform.js",
   "./js/ui/app.js",
   "./js/ui/categoryActions.js",
+  "./js/ui/categoryEditor.js",
   "./js/ui/charts.js",
   "./js/ui/components.js",
   "./js/ui/dom.js",
   "./js/ui/fmt.js",
+  "./js/ui/iconset.js",
   "./js/ui/insights.js",
   "./js/ui/lock.js",
   "./js/ui/screens/analysis.js",

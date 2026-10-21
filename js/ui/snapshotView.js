@@ -6,10 +6,14 @@ import { formatMoney } from '../core/money.js';
 import { hasValue, knownIds, shares } from '../core/ledger.js';
 import { groupKey, sortedCategories } from '../core/model.js';
 
-/** 一条记录里要展示的类别：应有的 ∪ 有金额的，按类别顺序。 */
+/**
+ * 一条记录里要展示的类别：应有的 ∪ 有金额的，按类别顺序。
+ * 已停用、且这条记录里没填金额的不显示（在设置里关掉的账户就不再出现）；有金额的仍显示，否则合计对不上。
+ */
 export function displayCategories(snap, categories) {
-  const ids = new Set([...(snap.expectedIds ?? []), ...knownIds(snap)]);
-  return sortedCategories(categories).filter((c) => ids.has(c.id));
+  const known = new Set(knownIds(snap));
+  const ids = new Set([...(snap.expectedIds ?? []), ...known]);
+  return sortedCategories(categories).filter((c) => ids.has(c.id) && (c.enabled || known.has(c.id)));
 }
 
 /** 封面里的占比条：一条横带，颜色与下面各账户前的圆点一一对应（数字写在列表里，不在色块里写字）。 */

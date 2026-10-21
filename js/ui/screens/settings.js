@@ -1,17 +1,16 @@
 // 设置：备份与恢复、类别、显示、安全、存储与离线、清除数据。
 import { h, icon } from '../dom.js';
 import { alertDialog, button, confirmDialog, noteBox, openSheet, promptDialog, seg, switchControl, toast } from '../components.js';
-import { catIcon, catSlotClass } from '../fmt.js';
 import { openTemplates } from './importHub.js';
 import { MIN_PASSWORD_LENGTH, createBackup, openBackup } from '../../core/backup.js';
 import { exportCSV } from '../../core/csvExport.js';
 import { dayDiff, todayISO } from '../../core/date.js';
-import { CATEGORY_ICON_KEYS, cleanName, iconKeyFor, sortedCategories } from '../../core/model.js';
+import { sortedCategories } from '../../core/model.js';
 import { MIME, fileStamp, isIOS, isStandalone, pickFile, saveFile } from '../../platform.js';
 import { lockSupported, registerLock, verifyLock } from '../lock.js';
 import { APP_NAME, APP_VERSION } from '../../version.js';
 import { editGoal } from '../insights.js';
-import { toggleDebt } from '../categoryActions.js';
+import { categoryList } from '../categoryEditor.js';
 import { compactYuan } from '../fmt.js';
 
 const when = (iso) => {
@@ -132,8 +131,6 @@ function confirmRestore(ctx, res) {
 
 /* ------------------------------ 页面 ------------------------------ */
 
-const ICON_LABELS = { wallet: '钱包', chat: '聊天', card: '银行卡', bank: '银行', cash: '现金', coin: '硬币', bitcoin: '数字货币', safe: '保险柜', trend: '走势', chart: '柱状图', sprout: '理财', gem: '贵金属', box: '货物', cart: '购物', briefcase: '公文包', home: '房产', car: '汽车', globe: '海外', receipt: '账单', shield: '保障', heart: '健康', star: '星标', pie: '组合', phone: '手机' };
-
 export function buildSettings(ctx, opts = {}) {
   const { store } = ctx;
   const root = h('div', {}, h('div', { class: 'screen-head' }, h('h1', { class: 'screen-title' }, '设置')));
@@ -204,116 +201,24 @@ export function buildSettings(ctx, opts = {}) {
   let addKind = 'asset';
   section({
     id: 'categories',
-    title: '资产类别',
-    sub: '点类别可改名、换图标、调整顺序；右边的开关控制新记录里是否出现它（历史数据始终保留）。',
-    sig: (st) => JSON.stringify(sortedCategories(st.categories).map((c) => [c.id, c.name, c.enabled, c.colorSlot, c.icon ?? null, !!c.debt])) + st.snapshots.length,
+    title: '账户与类别',
+    sub: '点一个账户可改名、换图标、设为负债、停用或删除；按住右边的 ≡ 上下拖动可调整顺序。',
+    sig: (st) => JSON.stringify(sortedCategories(st.categories).map((c) => [c.id, c.name, c.enabled, c.colorSlot, c.icon ?? null, !!c.debt, c.group ?? null])) + st.snapshots.length,
     build: () => {
-      // 所有操作都读「当下」的类别，而不是画面生成时的旧快照：编辑抽屉开着时列表可能已经重画过，
-      // 用旧快照会把刚改的名字、图标写回去。
-      const current = () => sortedCategories(store.state.categories);
-      const nameOf = (id) => store.state.categories.find((c) => c.id === id)?.name ?? '';
-      const save = async (next, ok) => {
-        const r = await store.saveCategories(next);
-        if (!r.ok) {
-          toast(r.message);
-          sections.find((x) => x.id === 'categories').draw();
-        } else if (ok) toast(ok);
-        return r;
-      };
-      /**
-       * 编辑一个类别：改名、换图标、调整顺序、删除都放在这个小抽屉里。
-       * 列表本身只留「图标 + 完整名称 + 开关」，名字不会再被挤得显示不全。
-       */
-      const editCategory = (id) => {
-        const sheet = openSheet({ title: '编辑类别', auto: true, body: null });
-        const draw = () => {
-          const cat = store.state.categories.find((c) => c.id === id);
-          if (!cat) return sheet.close();
-          const all = current();
-          const at = all.findIndex((c) => c.id === id);
-          // 改名：旁边有明确的「保存」按钮（改动后才可点）；直接点别处也会自动保存
-          const name = h('input', { type: 'text', value: cat.name, maxlength: 20, 'aria-label': '类别名称', enterkeyhint: 'done' });
-          const saveBtn = button('保存', () => saveName(), { sm: true, disabled: true });
-          const saveName = async () => {
-            const n = cleanName(name.value);
-            if (!n || n === nameOf(id)) {
-              name.value = nameOf(id);
-              saveBtn.disabled = true;
-              return;
-            }
-            const r = await store.saveCategories(current().map((c) => (c.id === id ? { ...c, name: n } : c)));
-            if (!r.ok) {
-              toast(r.message);
-              name.value = nameOf(id);
-            } else toast(`已改名为「${n}」`);
-            saveBtn.disabled = true;
-          };
-          name.addEventListener('input', () => {
-            const n = cleanName(name.value);
-            saveBtn.disabled = !n || n === nameOf(id);
-          });
-          name.addEventListener('change', saveName);
-          name.addEventListener('keydown', (e) => e.key === 'Enter' && name.blur());
-          const nowKey = iconKeyFor(cat, store.state.categories);
-          const choose = async (key) => {
-            const r = await store.saveCategories(current().map((c) => (c.id === id ? { ...c, icon: key ?? undefined } : c)));
-            if (!r.ok) toast(r.message);
-            draw();
-          };
-          const grid = h('div', { class: 'ico-grid', role: 'listbox', 'aria-label': '图标' }, ...CATEGORY_ICON_KEYS.map((k) => h('button', { type: 'button', role: 'option', class: ['ico-opt', k === nowKey && 'on'], 'aria-selected': String(k === nowKey), 'aria-label': ICON_LABELS[k] ?? k, onClick: () => choose(k) }, h('span', { class: `cat-ico ${catSlotClass(cat)}`, style: '--sz:44px' }, icon(k, { size: 24, stroke: 1.7 })))));
-          const move = (dir) => async () => {
-            const next = current();
-            const i = next.findIndex((c) => c.id === id);
-            if (i < 0 || !next[i + dir]) return;
-            [next[i], next[i + dir]] = [next[i + dir], next[i]];
-            await save(next);
-            draw();
-          };
-          const del = !store.isCategoryUsed(id)
-            ? button('删除这个类别', async () => {
-                if (!(await confirmDialog({ title: `删除「${nameOf(id)}」？`, message: '这个类别还没有任何记录，可以安全删除。', confirmText: '删除', danger: true }))) return;
-                const r = await store.deleteCategory(id);
-                if (!r.ok) return toast(r.message);
-                await sheet.close();
-              }, { kind: 'danger', block: true, iconName: 'trash' })
-            : h('p', { class: 'hint' }, '这个类别已有历史记录，不能删除；不想再记它时，在列表里关掉开关即可（历史数据保留）。');
-          sheet.body.replaceChildren(
-            h(
-              'div',
-              { class: 'stack edit-cat' },
-              h('div', { class: 'field' }, h('span', { class: 'label' }, '名称'), h('div', { class: 'row' }, h('div', { class: 'grow' }, name), saveBtn), h('span', { class: 'hint' }, '改名后，以前的记录也会显示新名字，金额不受影响。')),
-              h('div', { class: 'list' }, h('div', { class: 'setting' }, h('div', { class: 'grow' }, h('div', {}, '这是负债'), h('div', { class: 'desc' }, '信用卡、花呗、贷款等：记账时填欠款金额（正数），自动从资产里减去，首页显示净资产')), switchControl(!!cat.debt, async (on) => {
-                await toggleDebt(store, id, on);
-                draw();
-              }, '负债'))),
-              h('div', { class: 'field' }, h('span', { class: 'label' }, '图标'), grid, cat.icon ? button('恢复默认图标', () => choose(null), { kind: 'ghost', sm: true }) : null),
-              h('div', { class: 'field' }, h('span', { class: 'label' }, `顺序（第 ${at + 1} / ${all.length} 个）`), h('div', { class: 'row' }, button('上移', move(-1), { kind: 'secondary', sm: true, iconName: 'up', disabled: at <= 0 }), button('下移', move(1), { kind: 'secondary', sm: true, iconName: 'down', disabled: at >= all.length - 1 }))),
-              del,
-            ),
-          );
-        };
-        draw();
-      };
-      const rows = current().map((cat) => {
-        const sw = switchControl(cat.enabled, (on) => save(current().map((c) => (c.id === cat.id ? { ...c, enabled: on } : c)), on ? null : `已停用「${nameOf(cat.id)}」：历史数据保留，新记录里不再出现`), `${cat.name}：启用`);
-        const open = h('button', { type: 'button', class: 'cat-open', 'aria-label': `编辑「${cat.name}」` }, catIcon(cat, store.state.categories, { size: 36 }), h('span', { class: 'cat-nm' }, cat.name, cat.debt ? h('span', { class: 'tag debt' }, '负债') : null, cat.enabled ? null : h('span', { class: 'tag' }, '已停用')), icon('chevronR', { size: 16 }));
-        open.addEventListener('click', () => editCategory(cat.id));
-        return h('div', { class: ['cat-item', !cat.enabled && 'off', cat.group && 'sub'] }, open, sw);
-      });
       // 新增：先选「资产 / 负债」，再填名字
       const kind = seg([{ value: 'asset', label: '资产' }, { value: 'debt', label: '负债' }], addKind, (v) => {
         addKind = v;
-        newName.placeholder = v === 'debt' ? '新负债名称，如「信用卡」「花呗」' : '新类别名称，如「基金」';
-      }, { label: '新类别类型' });
-      newName.placeholder = addKind === 'debt' ? '新负债名称，如「信用卡」「花呗」' : '新类别名称，如「基金」';
+        newName.placeholder = v === 'debt' ? '新负债名称，如「信用卡」「花呗」' : '新账户名称，如「基金」';
+      }, { label: '新账户类型' });
+      newName.placeholder = addKind === 'debt' ? '新负债名称，如「信用卡」「花呗」' : '新账户名称，如「基金」';
       const add = async () => {
         const r = await store.addCategory(newName.value, { debt: addKind === 'debt' });
         if (!r.ok) return toast(r.message);
         newName.value = '';
-        toast(addKind === 'debt' ? '已添加负债账户。记账时填欠款金额（正数），会自动从资产里减去。' : '已添加。新记录会包含它；以前的记录不受影响，不会变成「不完整」。');
+        toast(addKind === 'debt' ? '已添加负债账户。记账时填欠款金额（正数），会自动从资产里减去。' : '已添加。新记录会包含它；以前的记录不受影响。');
       };
       newName.addEventListener('keydown', (e) => e.key === 'Enter' && add());
-      return h('div', { class: 'stack' }, h('div', { class: 'list' }, ...rows), h('div', { class: 'add-cat' }, kind, h('div', { class: 'row' }, h('div', { class: 'grow' }, newName), button('添加', add, { kind: 'secondary' }))));
+      return h('div', { class: 'stack' }, categoryList(store), h('div', { class: 'add-cat' }, kind, h('div', { class: 'row' }, h('div', { class: 'grow' }, newName), button('添加', add, { kind: 'secondary' }))));
     },
   });
 

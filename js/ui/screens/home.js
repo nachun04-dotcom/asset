@@ -131,13 +131,18 @@ export function buildHome(ctx) {
     // 账户
     // 有负债账户时分成「资产」「负债」两组，负债组标题旁写合计欠款
     const when = shown.complete ? `${formatDateZh(shown.date, { year: false })} 的余额` : '不完整，仅已记录部分';
-    const hasDebtRows = categories.some((c) => isDebt(c) && (shown.entries[c.id] || (shown.expectedIds ?? []).includes(c.id)));
+    const hasDebtRows = categories.some((c) => c.enabled && isDebt(c) && (shown.entries[c.id] || (shown.expectedIds ?? []).includes(c.id)));
+    // 已停用的账户在首页不列出；如果它在这条记录里有金额，就在列表下面用一行小字说明，合计才对得上
+    const hiddenOff = categories.filter((c) => !c.enabled && shown.entries[c.id] && Number.isInteger(shown.entries[c.id].fen));
+    const offNote = hiddenOff.length
+      ? h('p', { class: 'acc-foot' }, `另有 ${hiddenOff.length} 个已停用账户（${hiddenOff.map((c) => c.name).join('、')}）共 `, h('span', { class: 'mask' }, formatMoney(hiddenOff.reduce((n, c) => n + shown.entries[c.id].fen, 0), unit)), ' 计入合计')
+      : null;
     if (!hasDebtRows) {
-      frag.push(h('section', { class: 'section' }, sectionHead('账户', h('span', { class: 'muted small' }, when)), accountRows({ snap: shown, categories, unit, cmp, group: true })));
+      frag.push(h('section', { class: 'section' }, sectionHead('账户', h('span', { class: 'muted small' }, when)), accountRows({ snap: shown, categories, unit, cmp, group: true, only: (c) => c.enabled }), offNote));
     } else {
       const sp = splitTotals(shown, categories);
-      frag.push(h('section', { class: 'section' }, sectionHead('资产', h('span', { class: 'muted small' }, when)), accountRows({ snap: shown, categories, unit, cmp, group: true, only: (c) => !isDebt(c) })));
-      frag.push(h('section', { class: 'section' }, sectionHead('负债', h('span', { class: 'muted small' }, '合计欠 ', h('span', { class: 'mask' }, formatMoney(sp.debts, unit)))), accountRows({ snap: shown, categories, unit, cmp, group: true, only: isDebt })));
+      frag.push(h('section', { class: 'section' }, sectionHead('资产', h('span', { class: 'muted small' }, when)), accountRows({ snap: shown, categories, unit, cmp, group: true, only: (c) => c.enabled && !isDebt(c) })));
+      frag.push(h('section', { class: 'section' }, sectionHead('负债', h('span', { class: 'muted small' }, '合计欠 ', h('span', { class: 'mask' }, formatMoney(sp.debts, unit)))), accountRows({ snap: shown, categories, unit, cmp, group: true, only: (c) => c.enabled && isDebt(c) }), offNote));
     }
 
     // 去分析页的入口

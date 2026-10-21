@@ -40,37 +40,44 @@ export const SOURCE_LABELS = Object.freeze({
 
 export const CATEGORY_COLOR_SLOTS = 8;
 
-/** 类别图标：只存一个键名（字符串），图形本身在界面层。键名必须在这张表里，其余一律忽略。 */
+/** 类别图标：只存一个键名（字符串），图形本身在界面层。旧版的简写键名保留可用；新图标为「l-线条名」「b-品牌名」。 */
 export const CATEGORY_ICON_KEYS = Object.freeze([
   'wallet', 'chat', 'card', 'bank', 'cash', 'coin', 'bitcoin', 'safe', 'trend', 'chart', 'sprout', 'gem',
   'box', 'cart', 'briefcase', 'home', 'car', 'globe', 'receipt', 'shield', 'heart', 'star', 'pie', 'phone',
 ]);
 const ICON_KEY_SET = new Set(CATEGORY_ICON_KEYS);
-export const isIconKey = (k) => typeof k === 'string' && ICON_KEY_SET.has(k);
+export const isIconKey = (k) => typeof k === 'string' && (ICON_KEY_SET.has(k) || /^[lb]-[a-z0-9-]{1,40}$/.test(k));
 
 // 内置类别的默认图标（用户没有选过图标时使用）
-const DEFAULT_ICON_BY_ID = { alipay: 'wallet', wechat: 'chat', goods: 'box', binance: 'bitcoin', bank: 'card' };
+const DEFAULT_ICON_BY_ID = { alipay: 'b-alipay', wechat: 'b-wechat', goods: 'l-package', binance: 'b-binance', bank: 'l-credit-card' };
 
 // 按名字猜一个合适的图标（只是默认值，用户随时可以在设置里换）；越靠前越优先
 const ICON_GUESS = [
-  [/花呗|借呗|白条|贷款|房贷|车贷|欠款|负债|分期|借款/, 'receipt'],
-  [/支付宝|余额宝|alipay/i, 'wallet'],
-  [/微信|零钱|wechat/i, 'chat'],
-  [/币|crypto|btc|eth|binance|okx|比特|以太/i, 'bitcoin'],
-  [/信用卡|银行卡|储蓄卡|借记卡|卡/, 'card'],
-  [/银行|定期|活期|存款|大额存单/, 'bank'],
-  [/现金|钱包|零花/, 'cash'],
-  [/股票|证券|美股|港股|基金|etf|期货/i, 'trend'],
-  [/理财|养老|年金|国债|债券/, 'sprout'],
-  [/黄金|金条|贵金属|珠宝|白银/, 'gem'],
-  [/房|不动产|公寓/, 'home'],
-  [/车/, 'car'],
-  [/货款|货|库存|商品|仓/, 'box'],
-  [/应收|借出|欠款|垫付|报销/, 'receipt'],
-  [/保险|公积金|社保/, 'shield'],
-  [/医|健康/, 'heart'],
-  [/海外|外币|美元|日元|欧元|港币|外汇/, 'globe'],
-  [/生意|公司|店|投资款|合伙/, 'briefcase'],
+  [/花呗|借呗|白条|贷款|房贷|车贷|欠款|负债|分期|借款/, 'l-receipt-text'],
+  [/支付宝|余额宝|alipay/i, 'b-alipay'],
+  [/微信|零钱|wechat/i, 'b-wechat'],
+  [/币安|binance/i, 'b-binance'],
+  [/okx|欧易/i, 'b-okx'],
+  [/usdt|泰达/i, 'b-tether'],
+  [/以太|eth/i, 'b-ethereum'],
+  [/币|crypto|btc|比特/i, 'b-bitcoin'],
+  [/paypal/i, 'b-paypal'],
+  [/shopee|虾皮/i, 'b-shopee'],
+  [/淘宝|天猫|京东|拼多多|网店/i, 'l-shopping-bag'],
+  [/信用卡|银行卡|储蓄卡|借记卡|卡/, 'l-credit-card'],
+  [/银行|定期|活期|存款|大额存单/, 'l-landmark'],
+  [/现金|钱包|零花/, 'l-banknote'],
+  [/股票|证券|美股|港股|基金|etf|期货/i, 'l-chart-candlestick'],
+  [/理财|养老|年金|国债|债券/, 'l-sprout'],
+  [/黄金|金条|贵金属|珠宝|白银/, 'l-gem'],
+  [/房|不动产|公寓/, 'l-house'],
+  [/车/, 'l-car'],
+  [/货款|货|库存|商品|仓/, 'l-package'],
+  [/应收|借出|垫付|报销/, 'l-hand-coins'],
+  [/保险|公积金|社保/, 'l-shield-check'],
+  [/医|健康/, 'l-heart-pulse'],
+  [/海外|外币|美元|日元|欧元|港币|外汇/, 'l-globe'],
+  [/生意|公司|店|投资款|合伙/, 'l-briefcase-business'],
 ];
 
 /** 一个类别该显示哪个图标：自己选过的 > 同类账户的「根」的图标 > 内置默认 > 按名字猜 > 钱包。 */
@@ -81,7 +88,7 @@ export function iconKeyFor(cat, categories = []) {
   if (root && root !== cat) return iconKeyFor(root, categories);
   if (DEFAULT_ICON_BY_ID[cat.id]) return DEFAULT_ICON_BY_ID[cat.id];
   for (const [re, key] of ICON_GUESS) if (re.test(cat.name ?? '')) return key;
-  return 'wallet';
+  return 'l-wallet';
 }
 
 

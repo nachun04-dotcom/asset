@@ -10,6 +10,7 @@ import { cleanName, enabledCategories, groupKey, isDebt, nameKey, sortedCategori
 import { findByDate, hasValue, isComplete, recordedTotal, sortDesc } from '../../core/ledger.js';
 import { displayCategories } from '../snapshotView.js';
 import { addDebtAccount, renameCategory, toggleDebt } from '../categoryActions.js';
+import { confirmDeleteCategory, openCategoryEditor, openReorderSheet } from '../categoryEditor.js';
 
 const newRow = () => ({ text: '', fxOn: false, cur: '', orig: '' });
 /** 输入框里显示的金额：带千分位（218,440.72），parseAmount 能原样读回。 */
@@ -47,7 +48,8 @@ export function openEntry(ctx, { id = null, date = null } = {}) {
     const old = current();
     const map = new Map();
     for (const c of enabledCategories(store.state.categories)) map.set(c.id, c);
-    if (old) for (const c of displayCategories(old, store.state.categories)) map.set(c.id, c);
+    // 修改旧记录时，只额外带上「这条记录里有金额」的已停用账户（否则金额会丢）；停用且没填的不再出现
+    if (old) for (const c of displayCategories(old, store.state.categories)) if (c.enabled || hasValue(old.entries[c.id])) map.set(c.id, c);
     return sortedCategories([...map.values()]);
   };
 
@@ -337,7 +339,6 @@ export function openEntry(ctx, { id = null, date = null } = {}) {
   function openOptions(cat) {
     if (document.activeElement?.matches?.('input, textarea')) document.activeElement.blur(); // 先收起键盘
     const r = st.rows.get(cat.id);
-    const removable = !!cat.group && !store.isCategoryUsed(cat.id); // 只有后来加的、还没用过的同类账户可以在这里删
     const sw = switchControl(r.fxOn, async (on) => {
       r.fxOn = on;
       st.dirty = true;
@@ -350,16 +351,17 @@ export function openEntry(ctx, { id = null, date = null } = {}) {
       await opt.close();
       if (await toggleDebt(store, cat.id, on)) rebuild();
     }, `${cat.name}：负债`);
-    const del = removable
-      ? button('删除这个账户', async () => {
-          if (!(await confirmDialog({ title: `删除「${cat.name}」？`, message: '它还没有任何历史记录，删除不影响其他数据。', confirmText: '删除', danger: true }))) return;
-          const d = await store.deleteCategory(cat.id);
-          if (!d.ok) return alertDialog({ title: '没有删除', message: d.message });
-          st.rows.delete(cat.id);
-          await opt.close();
-          rebuild();
-        }, { kind: 'danger', block: true, iconName: 'trash' })
-      : null;
+    // 任何账户都能删：有金额时会说清楚要删掉多少笔，并建议改为「停用」
+    const del = button('删除这个账户', async () => {
+      if (!(await confirmDeleteCategory(store, cat.id))) return;
+      st.rows.delete(cat.id);
+      await opt.close();
+      rebuild();
+    }, { kind: 'danger', block: true, iconName: 'trash' });
+    const edit = h('button', { type: 'button', class: 'item', onClick: async () => {
+      await opt.close();
+      openCategoryEditor(store, cat.id, { onChange: rebuild });
+    } }, h('span', { class: 'ico' }, icon('sliders', { size: 18 })), h('span', { class: 'grow' }, h('div', { class: 'title' }, '换图标 · 停用'), h('div', { class: 'meta' }, '停用后记一笔和首页都不再显示它')), icon('chevronR', { size: 18 }));
     const rename = h('button', { type: 'button', class: 'item', onClick: async () => {
       await opt.close();
       if (await renameCategory(store, cat.id)) rebuild();
@@ -374,7 +376,7 @@ export function openEntry(ctx, { id = null, date = null } = {}) {
       body: h(
         'div',
         { class: 'stack' },
-        h('div', { class: 'list' }, rename, sibling, h('div', { class: 'setting' }, h('div', { class: 'grow' }, h('div', {}, '这是负债'), h('div', { class: 'desc' }, '信用卡、花呗、贷款等：填欠款金额（正数），自动从资产里减去')), debtSw), h('div', { class: 'setting' }, h('div', { class: 'grow' }, h('div', {}, '非人民币资产'), h('div', { class: 'desc' }, '金额栏填折算后的人民币；币种和原币数量记在下面作依据。App 不会自动换汇。')), sw)),
+        h('div', { class: 'list' }, rename, edit, sibling, h('div', { class: 'setting' }, h('div', { class: 'grow' }, h('div', {}, '这是负债'), h('div', { class: 'desc' }, '信用卡、花呗、贷款等：填欠款金额（正数），自动从资产里减去')), debtSw), h('div', { class: 'setting' }, h('div', { class: 'grow' }, h('div', {}, '非人民币资产'), h('div', { class: 'desc' }, '金额栏填折算后的人民币；币种和原币数量记在下面作依据。App 不会自动换汇。')), sw)),
         del,
       ),
     });
@@ -483,6 +485,7 @@ export function openEntry(ctx, { id = null, date = null } = {}) {
     const assetGroups = groups.filter((g) => !isDebt(g[0]));
     const debtGroups = groups.filter((g) => isDebt(g[0]));
     const cards = [...assetGroups.map(card), ...(debtGroups.length ? [h('div', { class: 'list-label' }, '负债'), ...debtGroups.map(card)] : [])];
+    const reorder = h('button', { type: 'button', class: 'link-btn', onClick: () => openReorderSheet(store, { onDone: rebuild }) }, icon('grip', { size: 15, stroke: 2 }), '调整账户顺序');
     const addDebt = h('button', { type: 'button', class: 'link-btn', onClick: async () => {
       if (await addDebtAccount(store)) rebuild();
     } }, icon('plus', { size: 14, stroke: 2.2 }), debtGroups.length ? '再添加负债账户' : '添加负债账户（信用卡、花呗、贷款）');
@@ -512,7 +515,7 @@ export function openEntry(ctx, { id = null, date = null } = {}) {
         } }, icon('trash', { size: 16 }), '删除这条记录')
       : null;
 
-    return h('div', { class: 'entry' }, h('div', { class: 'entry-bar' }, chip, unitSeg), ui.future, ui.dup, ui.reuse, h('div', { class: 'acct-list' }, ...cards), h('div', { class: 'entry-extra' }, addDebt, addNote, noteWrap), del);
+    return h('div', { class: 'entry' }, h('div', { class: 'entry-bar' }, chip, unitSeg), ui.future, ui.dup, ui.reuse, h('div', { class: 'acct-list' }, ...cards), h('div', { class: 'entry-extra' }, h('div', { class: 'extra-links' }, reorder, addDebt), addNote, noteWrap), del);
   }
 
   /* ------------------------------ 保存 ------------------------------ */

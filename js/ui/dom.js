@@ -60,6 +60,7 @@ const ICONS = {
   sliders: 'M4 7h9 M17 7h3 M4 17h3 M11 17h9 M15 4v6 M7 14v6',
   chevronR: 'M9 6l6 6-6 6',
   chevronL: 'M15 6l-6 6 6 6',
+  grip: 'M5 8.5h14 M5 12h14 M5 15.5h14',
   repeat: 'M4.5 11a7.5 7.5 0 0 1 13.2-4.6 M18 3v4h-4 M19.5 13a7.5 7.5 0 0 1-13.2 4.6 M6 21v-4h4',
   chevronD: 'M6 9l6 6 6-6',
   chevronU: 'M6 15l6-6 6 6',

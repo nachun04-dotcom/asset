@@ -183,10 +183,41 @@ export function createStore(repo, env = {}) {
       return state.snapshots.some((s) => hasValue(s.entries[id]) || (s.expectedIds ?? []).includes(id));
     },
 
-    /** 只能删除从未被任何记录使用的类别；否则请改为「停用」。 */
-    async deleteCategory(id) {
-      if (store.isCategoryUsed(id)) return fail('IN_USE', '这个类别已有历史记录，不能删除，请改为「停用」');
-      return store.saveCategories(sortedCategories(state.categories).filter((c) => c.id !== id));
+    /** 有几条记录填过这个类别的金额（删除前用来提示）。 */
+    categoryValueCount(id) {
+      return state.snapshots.filter((s) => hasValue(s.entries[id])).length;
+    },
+
+    /**
+     * 删除类别。没有金额的直接删；已有金额的，需要 withRecords:true，
+     * 会把它从所有记录里一并移除（这些记录的合计随之变化），然后重新判断每条记录是否完整。
+     * 同类账户的「根」被删时，其余同类账户改为独立账户。
+     */
+    async deleteCategory(id, { withRecords = false } = {}) {
+      const touched = state.snapshots.filter((s) => s.entries[id] || (s.expectedIds ?? []).includes(id));
+      if (touched.some((s) => hasValue(s.entries[id])) && !withRecords) return fail('IN_USE', '这个类别已有记录金额');
+      const rest = sortedCategories(state.categories)
+        .filter((c) => c.id !== id)
+        .map((c) => (c.group === id ? { ...c, group: undefined } : c));
+      if (!rest.some((c) => c.enabled)) return fail('NONE_ENABLED', '至少要保留一个启用的类别');
+      const now = nowIso();
+      const changed = touched.map((s) => {
+        const entries = { ...s.entries };
+        delete entries[id];
+        return finalizeSnapshot({ ...s, entries }, (s.expectedIds ?? []).filter((x) => x !== id), { now });
+      });
+      try {
+        if (changed.length) await repo.putSnapshots(changed);
+      } catch (e) {
+        return fail('STORAGE', `删除失败，没有改动任何数据：${e.message}`);
+      }
+      const r = await store.saveCategories(rest);
+      if (!r.ok) return r;
+      if (changed.length) {
+        const byId = new Map(changed.map((s) => [s.id, s]));
+        set({ snapshots: state.snapshots.map((s) => byId.get(s.id) ?? s) });
+      }
+      return { ok: true, records: changed.filter((s, i) => hasValue(touched[i].entries[id])).length };
     },
 
     /* ------------------------------ 设置与元数据 ------------------------------ */
