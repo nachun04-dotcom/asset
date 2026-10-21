@@ -5,6 +5,8 @@ import { accountRows, coverCard } from '../snapshotView.js';
 import { goalBlock, kpiRow } from '../insights.js';
 import { compareSnapshots, findByDate, latestComplete, latestOverall, missingIds, previousCompleteOf, recordedTotal } from '../../core/ledger.js';
 import { checkSnapshot } from '../../core/anomalies.js';
+import { isDebt, splitTotals } from '../../core/model.js';
+import { formatMoney } from '../../core/money.js';
 import { dayDiff, formatDateZh, relativeDaysZh, todayISO } from '../../core/date.js';
 
 /** 备份提醒：只占一行，点一下去备份；不抢首页的视线。 */
@@ -76,8 +78,10 @@ export function buildHome(ctx) {
     const cmp = comp && prevComp ? compareSnapshots(comp, prevComp) : null;
     const dateText = `${formatDateZh(shown.date, { year: shown.date.slice(0, 4) !== thisYear, weekday: true })} · ${relativeDaysZh(shown.date)}`;
     if (comp) {
+      const sp = splitTotals(comp, categories);
       const cover = coverCard({
-          label: '总资产',
+          label: sp.hasDebt ? '净资产' : '总资产',
+          split: sp.hasDebt ? sp : null,
           dateText,
           fen: recordedTotal(comp),
           complete: true,
@@ -125,7 +129,16 @@ export function buildHome(ctx) {
     if (bn) frag.push(bn);
 
     // 账户
-    frag.push(h('section', { class: 'section' }, sectionHead('账户', h('span', { class: 'muted small' }, shown.complete ? `${formatDateZh(shown.date, { year: false })} 的余额` : '不完整，仅已记录部分')), accountRows({ snap: shown, categories, unit, cmp, group: true })));
+    // 有负债账户时分成「资产」「负债」两组，负债组标题旁写合计欠款
+    const when = shown.complete ? `${formatDateZh(shown.date, { year: false })} 的余额` : '不完整，仅已记录部分';
+    const hasDebtRows = categories.some((c) => isDebt(c) && (shown.entries[c.id] || (shown.expectedIds ?? []).includes(c.id)));
+    if (!hasDebtRows) {
+      frag.push(h('section', { class: 'section' }, sectionHead('账户', h('span', { class: 'muted small' }, when)), accountRows({ snap: shown, categories, unit, cmp, group: true })));
+    } else {
+      const sp = splitTotals(shown, categories);
+      frag.push(h('section', { class: 'section' }, sectionHead('资产', h('span', { class: 'muted small' }, when)), accountRows({ snap: shown, categories, unit, cmp, group: true, only: (c) => !isDebt(c) })));
+      frag.push(h('section', { class: 'section' }, sectionHead('负债', h('span', { class: 'muted small' }, '合计欠 ', h('span', { class: 'mask' }, formatMoney(sp.debts, unit)))), accountRows({ snap: shown, categories, unit, cmp, group: true, only: isDebt })));
+    }
 
     // 去分析页的入口
     frag.push(h('button', { type: 'button', class: 'go-card', onClick: () => nav.goto('analysis') }, h('span', { class: 'ico' }, icon('pie', { size: 20 })), h('span', { class: 'grow' }, h('span', { class: 'gt' }, '查看分析'), h('span', { class: 'gs' }, '资产配置 · 趋势 · 每月变化')), icon('chevronR', { size: 18 })));

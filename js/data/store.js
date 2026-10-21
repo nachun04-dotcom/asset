@@ -125,7 +125,7 @@ export function createStore(repo, env = {}) {
         names.add(nameKey(n));
       }
       if (!list.some((c) => c.enabled)) return fail('NONE_ENABLED', '至少要启用一个类别');
-      const next = list.map((c, i) => ({ id: c.id, name: cleanName(c.name), enabled: !!c.enabled, order: i, colorSlot: c.colorSlot, ...(c.group ? { group: c.group } : {}), ...(isIconKey(c.icon) ? { icon: c.icon } : {}) }));
+      const next = list.map((c, i) => ({ id: c.id, name: cleanName(c.name), enabled: !!c.enabled, order: i, colorSlot: c.colorSlot, ...(c.group ? { group: c.group } : {}), ...(isIconKey(c.icon) ? { icon: c.icon } : {}), ...(c.debt ? { debt: true } : {}) }));
       try {
         await repo.setKV('categories', next);
       } catch (e) {
@@ -139,12 +139,13 @@ export function createStore(repo, env = {}) {
      * 新增类别。传入 sameAs（已有类别的 id）时，作为它的「同类账户」：
      * 排在同类最后一个的后面，归到同一类；8 个颜色槽用完时沿用同类的颜色。
      */
-    async addCategory(name, { sameAs = null } = {}) {
+    async addCategory(name, { sameAs = null, debt = false } = {}) {
       const n = cleanName(name);
       const list = sortedCategories(state.categories);
       const base = sameAs ? list.find((c) => c.id === sameAs) : null;
       if (sameAs && !base) return fail('NO_SUCH_CATEGORY', '找不到要添加同类的账户');
-      const cat = { id: newId('c'), name: n, enabled: true, colorSlot: nextColorSlot(list, base?.colorSlot) };
+      // 同类账户沿用「负债」属性（例如第二张信用卡）
+      const cat = { id: newId('c'), name: n, enabled: true, colorSlot: nextColorSlot(list, base?.colorSlot), ...(debt || base?.debt ? { debt: true } : {}) };
       let at = list.length;
       if (base) {
         cat.group = groupKey(base);
@@ -152,6 +153,30 @@ export function createStore(repo, env = {}) {
       }
       const r = await store.saveCategories([...list.slice(0, at), cat, ...list.slice(at)]);
       return r.ok ? { ...r, category: { ...cat } } : r;
+    },
+
+    /**
+     * 把一个类别设为 / 取消「负债」。负债的金额在记录里存为负数（总额自然就是净资产）。
+     * flipRecords：同时把这个类别已有记录里的金额取相反数——以前把欠款记成正数的，切换后才算得对。
+     */
+    async setCategoryDebt(id, debt, { flipRecords = false } = {}) {
+      const list = sortedCategories(state.categories).map((c) => (c.id === id ? { ...c, debt: !!debt } : c));
+      const r = await store.saveCategories(list);
+      if (!r.ok) return r;
+      if (!flipRecords) return { ok: true, flipped: 0 };
+      const changed = state.snapshots
+        .filter((s) => hasValue(s.entries[id]) && s.entries[id].fen !== 0)
+        .map((s) => ({ ...s, entries: { ...s.entries, [id]: { ...s.entries[id], fen: -s.entries[id].fen } }, updatedAt: nowIso() }));
+      if (!changed.length) return { ok: true, flipped: 0 };
+      try {
+        await repo.putSnapshots(changed);
+      } catch (e) {
+        await store.saveCategories(sortedCategories(state.categories).map((c) => (c.id === id ? { ...c, debt: !debt } : c)));
+        return fail('STORAGE', `保存失败，没有改动任何记录：${e.message}`);
+      }
+      const byId = new Map(changed.map((s) => [s.id, s]));
+      set({ snapshots: state.snapshots.map((s) => byId.get(s.id) ?? s) });
+      return { ok: true, flipped: changed.length };
     },
 
     isCategoryUsed(id) {

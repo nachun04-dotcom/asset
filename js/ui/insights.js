@@ -3,7 +3,7 @@
 import { h, s, icon } from './dom.js';
 import { promptDialog, toast } from './components.js';
 import { catCss, compactYuan } from './fmt.js';
-import { groupKey, sortedCategories } from '../core/model.js';
+import { groupKey, sortedCategories, splitTotals } from '../core/model.js';
 import { shares, totalSeries } from '../core/ledger.js';
 import { changeRatio, formatDecimal, formatMoney, formatPercent, formatSigned, parseAmount } from '../core/money.js';
 
@@ -99,12 +99,16 @@ export function allocation(snap, categories) {
     rest.length ? h('div', { class: 'li' }, h('i', { style: 'background:var(--cat-x)' }), h('span', { class: 'nm' }, `其他 ${rest.length} 项`), h('span', { class: 'pc num' }, `${(rest.reduce((n, x) => n + x.share, 0) * 100).toFixed(1)}%`)) : null,
   );
   const groups = new Set(items.map((x) => groupKey(x.cat))).size;
+  // 有负债时：环形图只画资产，底部加一行负债与负债率（负债 ÷ 资产）
+  const sp = splitTotals(snap, categories);
+  const debtLine = sp.hasDebt ? h('div', { class: 'alloc-debt' }, h('span', {}, '负债 ', h('b', { class: 'mask' }, compactYuan(sp.debts))), h('span', {}, '负债率 ', h('b', {}, sp.assets > 0 ? `${((sp.debts / sp.assets) * 100).toFixed(1)}%` : '—'))) : null;
   const top3 = items.slice(0, 3).reduce((n, x) => n + x.share, 0);
   return h(
     'div',
     { class: 'alloc' },
     h('div', { class: 'alloc-main' }, h('div', { class: 'donut-wrap' }, ring, center), legend),
     h('div', { class: 'alloc-foot' }, h('span', {}, `${groups} 类资产 · ${items.length} 个账户`), items.length > 3 ? h('span', {}, `前三项合计 ${(top3 * 100).toFixed(1)}%`) : null),
+    debtLine,
   );
 }
 

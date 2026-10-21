@@ -487,8 +487,8 @@ input:focus-visible, select:focus-visible, textarea:focus-visible { outline: non
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 41; margin: 0 auto; width: 100%; max-width: 620px;
   /* 键盘弹出时：底边抬到键盘上方（--kb），高度收进可见区域（--vvh），标题栏始终看得见 */
   bottom: var(--kb, 0px);
+  /* 高度和位置跟着键盘直接到位，不加过渡：否则键盘升完后抽屉还要再滑一次 */
   height: min(calc(100dvh - max(env(safe-area-inset-top, 0px), 18px) - 8px), calc(var(--vvh, 100dvh) - 10px)); max-height: 100dvh;
-  transition: height 0.28s cubic-bezier(0.22, 1, 0.36, 1), bottom 0.28s cubic-bezier(0.22, 1, 0.36, 1);
   display: flex; flex-direction: column; border-radius: 30px 30px 0 0;
   background: var(--sheet-bg);
   box-shadow: 0 -18px 50px -10px rgba(14, 10, 4, 0.34), inset 0 0.5px 0 var(--sheet-edge, rgba(255, 255, 255, 0.7));
@@ -620,7 +620,7 @@ details.table-view[open] { flex-basis: 100%; }
 
 .acct-list { display: grid; gap: 12px; }
 .acct-card { background: var(--surface); border: 1px solid var(--hair); border-radius: var(--r-lg); padding: 0 16px; box-shadow: var(--shadow); }
-.acct { padding: 14px 0 15px; }
+.acct { padding: 12px 0 13px; }
 .acct + .acct { border-top: 1px solid var(--hair); }
 .acct-top { display: flex; align-items: center; gap: 12px; min-height: 36px; }
 .acct-top > .cat-ico { --sz: 34px !important; }
@@ -630,7 +630,7 @@ details.table-view[open] { flex-basis: 100%; }
 .acct .sub { margin-top: 2px; font-size: 12px; line-height: 1.4; color: var(--ink-3); overflow-wrap: anywhere; letter-spacing: 0.02em; font-variant-numeric: tabular-nums; }
 .acct .sub.err { color: var(--bad); }
 .acct .sub.zero { color: var(--brand-text); }
-.acct-bottom { display: flex; align-items: flex-end; gap: 10px; margin-top: 8px; padding-left: 46px; }
+.acct-bottom { display: flex; align-items: flex-end; gap: 10px; margin-top: 4px; padding-left: 46px; }
 .acct .reuse {
   flex: none; display: inline-flex; align-items: center; gap: 4px; height: 32px; margin-bottom: 7px; padding: 0 11px; border-radius: 999px;
   border: 1px solid color-mix(in srgb, var(--gold) 45%, transparent); background: var(--brand-soft); color: var(--brand-text);
@@ -638,7 +638,7 @@ details.table-view[open] { flex-basis: 100%; }
 }
 /* 金额栏：没有灰底，只有一条细线；聚焦时线条变金色并微微发光 */
 .amt {
-  flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 4px; min-height: 46px; padding: 0 2px 6px;
+  flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 4px; min-height: 44px; padding: 0 2px 5px;
   border-bottom: 1px solid var(--rule); cursor: text; transition: border-color 0.2s, box-shadow 0.2s;
 }
 .amt:focus-within { border-bottom-color: var(--gold); box-shadow: 0 1px 0 0 var(--gold), 0 10px 18px -16px var(--gold); }
@@ -902,3 +902,25 @@ html[data-mask] .cover .hero::after {
 .cat-open:active { background: var(--sunk); }
 .cover.tappable { transition: filter 0.2s ease 0.07s; }
 .cover.tappable:active { filter: brightness(1.06); }
+
+/* ---------- 负债：信用卡、花呗、贷款 ---------- */
+.tag.debt { background: color-mix(in srgb, var(--red) 12%, transparent); color: var(--red); }
+.cover-split { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin: -4px 0 14px; font-size: 12.5px; color: var(--ivory-3); letter-spacing: 0.06em; }
+.cover-split b { font-weight: 500; color: var(--ivory-2); font-variant-numeric: tabular-nums; }
+.cover-split i { width: 1px; height: 11px; background: rgba(214, 186, 128, 0.3); }
+.list-label { display: flex; align-items: center; gap: 10px; margin: 6px 2px -2px; font: 600 14px/1.3 var(--font-serif); letter-spacing: 0.12em; color: var(--ink-2); }
+.list-label::before { content: ""; width: 12px; height: 1px; background: var(--red); }
+.amt.debt .pre { color: var(--red); font-family: var(--font-serif); font-size: 13px; letter-spacing: 0.04em; }
+.alloc-debt { display: flex; justify-content: space-between; gap: 10px; margin-top: 10px; padding: 9px 12px; border-radius: 12px; background: color-mix(in srgb, var(--red) 7%, var(--surface)); font-size: 12px; color: var(--ink-2); letter-spacing: 0.04em; }
+.alloc-debt b { font-weight: 600; color: var(--ink); }
+.add-cat { display: grid; gap: 10px; }
+.add-cat > .seg { justify-self: start; }
+html[data-mask] .cover-split b { filter: blur(6px); }
+/* 键盘弹出时底栏更紧凑：把空间留给正在填的内容 */
+html.kb-open .entry-foot .cap { min-height: 16px; }
+html.kb-open .sheet-foot { padding-top: 10px; }
+/* 一键沿用用过之后：卡片留在原处，变成安静的「已沿用」状态 */
+.reuse-all.done { border-color: var(--hair); background: var(--surface); cursor: default; }
+.reuse-all.done .ra-ico { background: var(--brand-soft); color: var(--brand-text); }
+.reuse-all.done > svg:last-child { visibility: hidden; }
+.reuse-all[disabled] { opacity: 1; }

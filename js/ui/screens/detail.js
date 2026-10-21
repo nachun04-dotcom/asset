@@ -5,7 +5,7 @@ import { accountRows, coverCard, shareBar } from '../snapshotView.js';
 import { compareSnapshots, previousCompleteOf, previousOf, recordedTotal } from '../../core/ledger.js';
 import { checkSnapshot } from '../../core/anomalies.js';
 import { formatDateZh, relativeDaysZh } from '../../core/date.js';
-import { SOURCE_LABELS } from '../../core/model.js';
+import { SOURCE_LABELS, splitTotals } from '../../core/model.js';
 
 function stampTime(iso) {
   const d = new Date(iso);
@@ -47,7 +47,8 @@ export function openDetail(ctx, id) {
       change = cmpCat.partial;
       changeNote = `已记录部分较 ${formatDateZh(prevAny.date)}`;
     }
-    const head = coverCard({ label: snap.complete ? '总资产' : '已记录合计（不是总资产）', dateText, fen: recordedTotal(snap), complete: snap.complete, unit, change, changeNote, note: basis, bar: shareBar(snap, categories) });
+    const sp = splitTotals(snap, categories);
+    const head = coverCard({ label: snap.complete ? (sp.hasDebt ? '净资产' : '总资产') : '已记录合计（不是总资产）', dateText, fen: recordedTotal(snap), complete: snap.complete, unit, change, changeNote, note: basis, bar: shareBar(snap, categories), split: sp.hasDebt ? sp : null });
     const rows = accountRows({ snap, categories, unit, cmp: cmpCat });
 
     const frag = [head, h('div', { class: 'detail-rows' }, rows)];

@@ -89,31 +89,49 @@ function trackViewport() {
   vvBound = true;
   const root = document.documentElement;
   const vv = window.visualViewport;
+  let lastKb = 0;
+  let lastH = vv ? vv.height : window.innerHeight;
   const update = () => {
     const vh = vv ? vv.height : window.innerHeight;
     const kb = vv ? Math.max(0, window.innerHeight - vv.height - vv.offsetTop) : 0;
     root.style.setProperty('--vvh', `${Math.round(vh)}px`);
     root.style.setProperty('--kb', `${Math.round(kb)}px`);
     root.classList.toggle('kb-open', kb > 80);
-    if (kb > 80) keepFocusedVisible();
+    // 只在「键盘刚升起」的那一刻检查一次（iOS 看 --kb，安卓看可见高度骤减）；
+    // 键盘开着时的普通滚动不再触发自动滚动，否则会和手指抢着滚
+    const opening = (kb > 80 && lastKb <= 80) || lastH - vh > 120;
+    lastKb = kb;
+    lastH = vh;
+    if (opening) keepFocusedVisible(120);
   };
   vv?.addEventListener('resize', update);
   vv?.addEventListener('scroll', update);
   window.addEventListener('resize', update);
+  // 记下手指最后一次滑动的时间：刚滑过就不自动滚，尊重用户自己的滚动
+  document.addEventListener('touchmove', () => (lastTouchMove = Date.now()), { passive: true });
   update();
 }
+let lastTouchMove = 0;
 
-/** 正在输入的框如果被键盘或抽屉底栏挡住，就在抽屉内部把它滚到中间偏上的位置。 */
-function keepFocusedVisible() {
-  const el = document.activeElement;
-  const body = el?.closest?.('.sheet-body');
-  if (!body || !el.matches('input, textarea, select')) return;
+/**
+ * 正在输入的框如果被键盘或抽屉底栏挡住，只把它「刚好露出来」（上下各留 24px），不大幅跳动；
+ * 没被挡住就一动不动。多次触发会合并成一次。
+ */
+function keepFocusedVisible(delay = 0) {
   clearTimeout(keepFocusedVisible.t);
   keepFocusedVisible.t = setTimeout(() => {
+    const el = document.activeElement;
+    const body = el?.closest?.('.sheet-body');
+    if (!body || !el.matches('input, textarea, select')) return;
+    if (Date.now() - lastTouchMove < 500) return;
     const r = el.getBoundingClientRect();
     const b = body.getBoundingClientRect();
-    if (r.top < b.top + 16 || r.bottom > b.bottom - 16) body.scrollTo({ top: body.scrollTop + (r.top - b.top) - b.height * 0.32, behavior: 'smooth' });
-  }, 60);
+    const m = 24;
+    let dy = 0;
+    if (r.bottom > b.bottom - m) dy = r.bottom - (b.bottom - m);
+    else if (r.top < b.top + m) dy = r.top - (b.top + m);
+    if (Math.abs(dy) > 2) body.scrollBy({ top: dy, behavior: 'smooth' });
+  }, delay);
 }
 
 let lockedY = null;
@@ -338,12 +356,10 @@ export function openSheet({ title, body, footer, onClose, beforeClose, auto = fa
   root.appendChild(el);
   trackViewport();
   lockPage();
-  // 键盘升起和抽屉收缩都有动画：分两次检查，确保正在填的那一行露在键盘上方
+  // 键盘已经开着、换到另一个输入框时：等系统自己的滚动停下后检查一次（键盘刚升起的情况由 trackViewport 处理）
   bodyEl.addEventListener('focusin', () => {
-    setTimeout(keepFocusedVisible, 320);
-    setTimeout(keepFocusedVisible, 700);
+    if (document.documentElement.classList.contains('kb-open')) keepFocusedVisible(300);
   });
-  el.addEventListener('transitionend', (e) => e.target === el && e.propertyName === 'height' && keepFocusedVisible());
   stack.push(entry);
   try {
     history.pushState({ sheet: stack.length }, '');

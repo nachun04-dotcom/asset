@@ -20,7 +20,8 @@ export function checkSnapshot(snap, ctx) {
     });
   }
   for (const [id, e] of Object.entries(snap.entries)) {
-    if (hasValue(e) && e.fen < 0) {
+    // 负债类别本来就是负数，不提示
+    if (hasValue(e) && e.fen < 0 && !categories.find((c) => c.id === id)?.debt) {
       issues.push({ code: 'NEGATIVE', level: 'info', text: `${name(id)} 是负数，请确认`, categoryId: id });
     }
   }

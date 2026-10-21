@@ -31,12 +31,14 @@ export function shareBar(snap, categories) {
  * 封面：深色的「存折」卡片，是整个 App 里唯一的视觉焦点。
  * @param change { fen, ratio } 与上一条的变化（可为 null）；changeNote 说明比较对象
  */
-export function coverCard({ label, dateText, fen = null, complete = true, unit, change = null, changeNote = null, note = null, bar = null, ariaLabel }) {
+export function coverCard({ label, dateText, fen = null, complete = true, unit, change = null, changeNote = null, note = null, bar = null, split = null, ariaLabel }) {
   const el = h('section', { class: ['cover', !complete && 'partial'], 'aria-label': ariaLabel ?? label },
     h('div', { class: 'cover-head' }, h('div', { class: 'cover-label' }, label), fen == null ? null : stamp(complete)),
     h('div', { class: 'cover-date' }, dateText),
     fen == null ? h('div', { class: 'hero dim', 'aria-label': '暂无总资产' }, '—') : heroAmount(fen, unit, { dim: !complete }),
   );
+  // 有负债时：大数字是净资产，下面一行写清楚资产和负债各多少
+  if (split) el.appendChild(h('div', { class: 'cover-split' }, h('span', {}, '资产 ', h('b', { class: 'mask' }, formatMoney(split.assets, unit))), h('i', { 'aria-hidden': 'true' }), h('span', {}, '负债 ', h('b', { class: 'mask' }, formatMoney(split.debts, unit)))));
   const delta = h('div', { class: 'cover-delta' });
   if (change) delta.appendChild(deltaSpan(change.fen, change.ratio, unit));
   if (changeNote) delta.appendChild(h('span', { class: 'cover-note' }, changeNote));
@@ -53,13 +55,13 @@ const shareText = (x) => (x ? `${(x * 100).toFixed(1)}%` : '');
  * @param cmp compareSnapshots(snap, prev) 的结果（可为 null）
  * @param group 同类账户（例如两个支付宝）并成一组：先显示合计，下面缩进列出各账户
  */
-export function accountRows({ snap, categories, unit, cmp = null, group = false }) {
+export function accountRows({ snap, categories, unit, cmp = null, group = false, only = null }) {
   const sh = new Map(shares(snap).map((x) => [x.id, x.share]));
-  const cats = displayCategories(snap, categories);
+  const cats = displayCategories(snap, categories).filter((c) => !only || only(c));
 
   const row = (cat, { child = false, name = cat.name } = {}) => {
     const e = snap.entries[cat.id];
-    const tags = cat.enabled ? null : h('span', { class: 'tag' }, '已停用');
+    const tags = [cat.debt ? h('span', { class: 'tag debt' }, '负债') : null, cat.enabled ? null : h('span', { class: 'tag' }, '已停用')];
     if (!hasValue(e)) {
       // 没填的账户：金额位置只放一条细横线，下面一行小字说明，不再用斜体「未记录」占满一行
       return h('div', { class: ['acc', 'unknown', child && 'child'] }, catIcon(cat, categories), h('div', { class: 'acc-main' }, h('div', { class: 'acc-name' }, name, tags), h('div', { class: 'acc-sub' }, h('span', {}, '这次没有填写'))), h('div', { class: 'acc-val' }, h('div', { class: 'v' }, h('span', { class: 'dash', 'aria-label': '未记录' }))));

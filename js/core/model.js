@@ -53,6 +53,7 @@ const DEFAULT_ICON_BY_ID = { alipay: 'wallet', wechat: 'chat', goods: 'box', bin
 
 // 按名字猜一个合适的图标（只是默认值，用户随时可以在设置里换）；越靠前越优先
 const ICON_GUESS = [
+  [/花呗|借呗|白条|贷款|房贷|车贷|欠款|负债|分期|借款/, 'receipt'],
   [/支付宝|余额宝|alipay/i, 'wallet'],
   [/微信|零钱|wechat/i, 'chat'],
   [/币|crypto|btc|eth|binance|okx|比特|以太/i, 'bitcoin'],
@@ -133,6 +134,25 @@ export function suggestSiblingName(categories, baseCat) {
     if (!taken.has(nameKey(name))) return name;
   }
   return `${base} ${Date.now() % 10000}`;
+}
+
+/** 负债类别（信用卡、花呗、贷款等）：记录里的金额存为负数，合计即净资产。 */
+export const isDebt = (cat) => !!cat?.debt;
+
+/** 一条记录里的资产合计与负债合计（负债以正数表示欠了多少）。 */
+export function splitTotals(snap, categories) {
+  let assets = 0;
+  let debts = 0;
+  let hasDebt = false;
+  const byId = new Map(categories.map((c) => [c.id, c]));
+  for (const [id, e] of Object.entries(snap.entries)) {
+    if (!e || !Number.isInteger(e.fen)) continue;
+    if (isDebt(byId.get(id))) {
+      hasDebt = true;
+      debts -= e.fen;
+    } else assets += e.fen;
+  }
+  return { assets, debts, hasDebt };
 }
 
 export function sortedCategories(categories) {

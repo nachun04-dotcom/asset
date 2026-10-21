@@ -11,6 +11,7 @@ import { MIME, fileStamp, isIOS, isStandalone, pickFile, saveFile } from '../../
 import { lockSupported, registerLock, verifyLock } from '../lock.js';
 import { APP_NAME, APP_VERSION } from '../../version.js';
 import { editGoal } from '../insights.js';
+import { toggleDebt } from '../categoryActions.js';
 import { compactYuan } from '../fmt.js';
 
 const when = (iso) => {
@@ -200,11 +201,12 @@ export function buildSettings(ctx, opts = {}) {
 
   /* 类别 */
   const newName = h('input', { type: 'text', placeholder: '新类别名称，如「基金」', 'aria-label': '新类别名称', maxlength: 20 });
+  let addKind = 'asset';
   section({
     id: 'categories',
     title: '资产类别',
     sub: '点类别可改名、换图标、调整顺序；右边的开关控制新记录里是否出现它（历史数据始终保留）。',
-    sig: (st) => JSON.stringify(sortedCategories(st.categories).map((c) => [c.id, c.name, c.enabled, c.colorSlot, c.icon ?? null])) + st.snapshots.length,
+    sig: (st) => JSON.stringify(sortedCategories(st.categories).map((c) => [c.id, c.name, c.enabled, c.colorSlot, c.icon ?? null, !!c.debt])) + st.snapshots.length,
     build: () => {
       // 所有操作都读「当下」的类别，而不是画面生成时的旧快照：编辑抽屉开着时列表可能已经重画过，
       // 用旧快照会把刚改的名字、图标写回去。
@@ -280,6 +282,10 @@ export function buildSettings(ctx, opts = {}) {
               'div',
               { class: 'stack edit-cat' },
               h('div', { class: 'field' }, h('span', { class: 'label' }, '名称'), h('div', { class: 'row' }, h('div', { class: 'grow' }, name), saveBtn), h('span', { class: 'hint' }, '改名后，以前的记录也会显示新名字，金额不受影响。')),
+              h('div', { class: 'list' }, h('div', { class: 'setting' }, h('div', { class: 'grow' }, h('div', {}, '这是负债'), h('div', { class: 'desc' }, '信用卡、花呗、贷款等：记账时填欠款金额（正数），自动从资产里减去，首页显示净资产')), switchControl(!!cat.debt, async (on) => {
+                await toggleDebt(store, id, on);
+                draw();
+              }, '负债'))),
               h('div', { class: 'field' }, h('span', { class: 'label' }, '图标'), grid, cat.icon ? button('恢复默认图标', () => choose(null), { kind: 'ghost', sm: true }) : null),
               h('div', { class: 'field' }, h('span', { class: 'label' }, `顺序（第 ${at + 1} / ${all.length} 个）`), h('div', { class: 'row' }, button('上移', move(-1), { kind: 'secondary', sm: true, iconName: 'up', disabled: at <= 0 }), button('下移', move(1), { kind: 'secondary', sm: true, iconName: 'down', disabled: at >= all.length - 1 }))),
               del,
@@ -290,18 +296,24 @@ export function buildSettings(ctx, opts = {}) {
       };
       const rows = current().map((cat) => {
         const sw = switchControl(cat.enabled, (on) => save(current().map((c) => (c.id === cat.id ? { ...c, enabled: on } : c)), on ? null : `已停用「${nameOf(cat.id)}」：历史数据保留，新记录里不再出现`), `${cat.name}：启用`);
-        const open = h('button', { type: 'button', class: 'cat-open', 'aria-label': `编辑「${cat.name}」` }, catIcon(cat, store.state.categories, { size: 36 }), h('span', { class: 'cat-nm' }, cat.name, cat.enabled ? null : h('span', { class: 'tag' }, '已停用')), icon('chevronR', { size: 16 }));
+        const open = h('button', { type: 'button', class: 'cat-open', 'aria-label': `编辑「${cat.name}」` }, catIcon(cat, store.state.categories, { size: 36 }), h('span', { class: 'cat-nm' }, cat.name, cat.debt ? h('span', { class: 'tag debt' }, '负债') : null, cat.enabled ? null : h('span', { class: 'tag' }, '已停用')), icon('chevronR', { size: 16 }));
         open.addEventListener('click', () => editCategory(cat.id));
         return h('div', { class: ['cat-item', !cat.enabled && 'off', cat.group && 'sub'] }, open, sw);
       });
+      // 新增：先选「资产 / 负债」，再填名字
+      const kind = seg([{ value: 'asset', label: '资产' }, { value: 'debt', label: '负债' }], addKind, (v) => {
+        addKind = v;
+        newName.placeholder = v === 'debt' ? '新负债名称，如「信用卡」「花呗」' : '新类别名称，如「基金」';
+      }, { label: '新类别类型' });
+      newName.placeholder = addKind === 'debt' ? '新负债名称，如「信用卡」「花呗」' : '新类别名称，如「基金」';
       const add = async () => {
-        const r = await store.addCategory(newName.value);
+        const r = await store.addCategory(newName.value, { debt: addKind === 'debt' });
         if (!r.ok) return toast(r.message);
         newName.value = '';
-        toast('已添加。新记录会包含它；以前的记录不受影响，不会变成「不完整」。');
+        toast(addKind === 'debt' ? '已添加负债账户。记账时填欠款金额（正数），会自动从资产里减去。' : '已添加。新记录会包含它；以前的记录不受影响，不会变成「不完整」。');
       };
       newName.addEventListener('keydown', (e) => e.key === 'Enter' && add());
-      return h('div', { class: 'stack' }, h('div', { class: 'list' }, ...rows), h('div', { class: 'row' }, h('div', { class: 'grow' }, newName), button('添加', add, { kind: 'secondary' })));
+      return h('div', { class: 'stack' }, h('div', { class: 'list' }, ...rows), h('div', { class: 'add-cat' }, kind, h('div', { class: 'row' }, h('div', { class: 'grow' }, newName), button('添加', add, { kind: 'secondary' }))));
     },
   });
 
