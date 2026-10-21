@@ -129,6 +129,30 @@ function confirmRestore(ctx, res) {
   });
 }
 
+/** 主动检查新版本：有新版就下载并刷新；没有就提示已是最新。 */
+async function checkForUpdate(btn) {
+  const reg = await navigator.serviceWorker?.getRegistration?.().catch(() => null);
+  if (!reg) return location.reload();
+  btn.disabled = true;
+  btn.lastChild.textContent = '检查中…';
+  const done = (msg) => {
+    btn.disabled = false;
+    btn.lastChild.textContent = '检查更新';
+    if (msg) toast(msg);
+  };
+  try {
+    await reg.update();
+  } catch {
+    return done('暂时连不上网络，稍后再试');
+  }
+  const nw = reg.installing || reg.waiting;
+  if (!nw) return done(`已是最新版本（${APP_VERSION}）`);
+  btn.lastChild.textContent = '正在更新…';
+  navigator.serviceWorker.addEventListener('controllerchange', () => location.reload(), { once: true });
+  if (reg.waiting) reg.waiting.postMessage('skipWaiting');
+  setTimeout(() => location.reload(), 8000);
+}
+
 /* ------------------------------ 页面 ------------------------------ */
 
 export function buildSettings(ctx, opts = {}) {
@@ -163,7 +187,7 @@ export function buildSettings(ctx, opts = {}) {
   section({
     id: 'backup',
     title: '导入与备份',
-    sub: '数据只保存在这台手机里。换手机、卸载或清除网站数据都会丢失，请定期备份。',
+    sub: '数据只存在这台手机里，请定期备份。',
     sig: (st) => `${st.meta.lastBackupAt}|${st.meta.preRestore?.savedAt}|${st.snapshots.length}`,
     build: () => {
       const { meta, settings, snapshots } = store.state;
@@ -177,16 +201,16 @@ export function buildSettings(ctx, opts = {}) {
         h(
           'div',
           { class: 'list' },
-          listItem('download', '导入记录', '从截图文字、粘贴文本或 CSV / Excel 导入以前的记录', () => ctx.nav.goto('import')),
-          listItem('share', '导出完整备份', '可设置密码加密；换手机时用它恢复', () => openBackupExport(ctx)),
-          listItem('upload', '从备份文件恢复', '选择之前导出的 .json 备份', () => startRestore(ctx)),
-          listItem('table', '导出 CSV', '用 Excel / 表格软件查看和分析（不能用来恢复）', async () => {
+          listItem('download', '导入记录', '粘贴文字或 CSV / Excel', () => ctx.nav.goto('import')),
+          listItem('share', '导出完整备份', '换手机时用它恢复，可加密', () => openBackupExport(ctx)),
+          listItem('upload', '从备份文件恢复', '选择 .json 备份文件', () => startRestore(ctx)),
+          listItem('table', '导出 CSV', '用表格软件查看', async () => {
             if (!store.state.snapshots.length) return toast('还没有记录可导出');
             const r = await saveFile(`资产账本-导出-${fileStamp()}.csv`, exportCSV(store.state.snapshots, store.state.categories), MIME.csv, { title: '资产账本 CSV' });
             if (r !== 'cancelled') toast(r === 'shared' ? '已打开分享面板' : '已下载');
           }),
-          listItem('file', '下载导入模板', 'CSV / Excel，可填写后导入', () => openTemplates(ctx)),
-          meta.preRestore ? listItem('undo', '撤销上次恢复', `恢复前的数据保存于 ${when(meta.preRestore.savedAt)}，点这里换回去`, async () => {
+          listItem('file', '下载导入模板', '填好后导入', () => openTemplates(ctx)),
+          meta.preRestore ? listItem('undo', '撤销上次恢复', `换回 ${when(meta.preRestore.savedAt)} 的数据`, async () => {
             if (!(await confirmDialog({ title: '撤销上次恢复？', message: `会换回 ${when(meta.preRestore.savedAt)} 时的数据（${meta.preRestore.payload.snapshots.length} 条记录）。现在这份数据会被替换。`, confirmText: '撤销恢复', danger: true }))) return;
             const r = await store.undoRestore();
             toast(r.ok ? '已撤销恢复' : r.message);
@@ -197,25 +221,25 @@ export function buildSettings(ctx, opts = {}) {
   });
 
   /* 类别 */
-  const newName = h('input', { type: 'text', placeholder: '新类别名称，如「基金」', 'aria-label': '新类别名称', maxlength: 20 });
+  const newName = h('input', { type: 'text', placeholder: '新账户名称', 'aria-label': '新类别名称', maxlength: 20 });
   let addKind = 'asset';
   section({
     id: 'categories',
     title: '账户与类别',
-    sub: '点一个账户可改名、换图标、设为负债、停用或删除；按住右边的 ≡ 上下拖动可调整顺序。',
+    sub: '点账户可编辑，按住 ≡ 拖动排序。',
     sig: (st) => JSON.stringify(sortedCategories(st.categories).map((c) => [c.id, c.name, c.enabled, c.colorSlot, c.icon ?? null, !!c.debt, c.group ?? null])) + st.snapshots.length,
     build: () => {
       // 新增：先选「资产 / 负债」，再填名字
       const kind = seg([{ value: 'asset', label: '资产' }, { value: 'debt', label: '负债' }], addKind, (v) => {
         addKind = v;
-        newName.placeholder = v === 'debt' ? '新负债名称，如「信用卡」「花呗」' : '新账户名称，如「基金」';
+        newName.placeholder = v === 'debt' ? '如：信用卡、花呗' : '如：基金、银行卡';
       }, { label: '新账户类型' });
-      newName.placeholder = addKind === 'debt' ? '新负债名称，如「信用卡」「花呗」' : '新账户名称，如「基金」';
+      newName.placeholder = addKind === 'debt' ? '如：信用卡、花呗' : '如：基金、银行卡';
       const add = async () => {
         const r = await store.addCategory(newName.value, { debt: addKind === 'debt' });
         if (!r.ok) return toast(r.message);
         newName.value = '';
-        toast(addKind === 'debt' ? '已添加负债账户。记账时填欠款金额（正数），会自动从资产里减去。' : '已添加。新记录会包含它；以前的记录不受影响。');
+        toast(addKind === 'debt' ? '已添加，记账时填欠款金额' : '已添加');
       };
       newName.addEventListener('keydown', (e) => e.key === 'Enter' && add());
       return h('div', { class: 'stack' }, categoryList(store), h('div', { class: 'add-cat' }, kind, h('div', { class: 'row' }, h('div', { class: 'grow' }, newName), button('添加', add, { kind: 'secondary' }))));
@@ -250,13 +274,13 @@ export function buildSettings(ctx, opts = {}) {
       return h(
         'div',
         { class: 'list' },
-        row('隐藏金额', '在公共场合打开时，界面上的金额会模糊显示；首页右上角的眼睛也能切换', switchControl(!!s.hideAmounts, (on) => set({ hideAmounts: on }), '隐藏金额')),
-        row('财富目标', s.goalFen ? '首页总资产卡片会显示达成进度' : '设定后，首页会显示达成进度', button(s.goalFen ? compactYuan(s.goalFen) : '设定', () => editGoal(store), { sm: true, kind: 'secondary' })),
-        row('金额单位', '首页和列表里的显示方式', seg([{ value: 'yuan', label: '元' }, { value: 'wan', label: '万元' }], s.unit, (v) => set({ unit: v }), { label: '金额单位' })),
-        row('涨跌颜色', '只影响颜色，▲▼ 符号始终显示', seg([{ value: 'red', label: '红涨绿跌' }, { value: 'green', label: '绿涨红跌' }], s.riseColor, (v) => set({ riseColor: v }), { label: '涨跌颜色' })),
+        row('隐藏金额', '首页右上角的眼睛也能切换', switchControl(!!s.hideAmounts, (on) => set({ hideAmounts: on }), '隐藏金额')),
+        row('财富目标', '首页显示达成进度', button(s.goalFen ? compactYuan(s.goalFen) : '设定', () => editGoal(store), { sm: true, kind: 'secondary' })),
+        row('金额单位', null, seg([{ value: 'yuan', label: '元' }, { value: 'wan', label: '万元' }], s.unit, (v) => set({ unit: v }), { label: '金额单位' })),
+        row('涨跌颜色', null, seg([{ value: 'red', label: '红涨绿跌' }, { value: 'green', label: '绿涨红跌' }], s.riseColor, (v) => set({ riseColor: v }), { label: '涨跌颜色' })),
         row('外观', null, seg([{ value: 'auto', label: '跟随系统' }, { value: 'light', label: '浅色' }, { value: 'dark', label: '深色' }], s.theme, (v) => set({ theme: v }), { label: '外观' })),
-        row('变化提醒', '与上一条相比变化超过这个比例时提示（只提示，不改数据）', h('div', { class: 'row', style: 'gap:6px' }, th, h('span', {}, '%'))),
-        row('备份提醒', '距上次备份超过这么久，首页会提醒', remind),
+        row('变化提醒', '较上次变化超过时提示', h('div', { class: 'row', style: 'gap:6px' }, th, h('span', {}, '%'))),
+        row('备份提醒', null, remind),
       );
     },
   });
@@ -301,8 +325,8 @@ export function buildSettings(ctx, opts = {}) {
       return h(
         'div',
         { class: 'stack' },
-        h('div', { class: 'list' }, h('div', { class: 'setting' }, h('div', { class: 'grow' }, h('div', {}, '设备锁'), desc), sw), settings.lockEnabled ? row('重新锁定', '离开 App 多久后需要再次验证', after) : null),
-        noteBox('info', '设备锁用来挡住别人直接翻看这个 App，不会加密手机里的数据。想保护备份文件，请在导出时设置密码。'),
+        h('div', { class: 'list' }, h('div', { class: 'setting' }, h('div', { class: 'grow' }, h('div', {}, '设备锁'), desc), sw), settings.lockEnabled ? row('重新锁定', null, after) : null),
+        h('p', { class: 'hint' }, '只防别人翻看，不加密数据。'),
       );
     },
   });
@@ -319,10 +343,10 @@ export function buildSettings(ctx, opts = {}) {
       const persistBtn = h('span', {});
       (async () => {
         const sw = 'serviceWorker' in navigator;
-        status.textContent = !sw ? '当前环境不支持离线缓存（需要 HTTPS 或 localhost）' : navigator.serviceWorker.controller ? '已就绪：断网也能打开' : '尚未就绪：请联网打开一次，等这里变成「已就绪」';
+        status.textContent = !sw ? '不支持' : navigator.serviceWorker.controller ? '已就绪' : '联网打开一次后就绪';
         try {
           const p = await navigator.storage?.persisted?.();
-          persist.textContent = p ? '已开启（系统不会随意清理）' : '未开启（存储紧张时系统可能清理）';
+          persist.textContent = p ? '已开启' : '未开启';
           if (!p && navigator.storage?.persist) persistBtn.replaceChildren(button('申请持久存储', async () => {
             const ok = await navigator.storage.persist();
             await store.setMeta('persisted', !!ok);
@@ -336,12 +360,12 @@ export function buildSettings(ctx, opts = {}) {
       })();
       const install = isStandalone()
         ? null
-        : noteBox('warn', [h('b', {}, '建议添加到主屏幕后再使用'), h('div', { class: 'small' }, isIOS() ? '用 Safari 打开 → 点分享按钮 → 添加到主屏幕。iPhone 的 Safari 可能会清理长期不打开的网页的本地数据，添加到主屏幕后的 App 不受这个限制。' : '在 Chrome 菜单里选「安装应用」或「添加到主屏幕」，之后它会像普通 App 一样打开，并且更不容易被系统清理数据。')]);
+        : noteBox('warn', [h('b', {}, '建议添加到主屏幕'), h('div', { class: 'small' }, isIOS() ? 'Safari 分享按钮 → 添加到主屏幕，数据更不容易被清理。' : '浏览器菜单 → 安装应用 / 添加到主屏幕。')]);
       return h(
         'div',
         { class: 'stack' },
         install,
-        h('div', { class: 'card flat' }, h('div', { class: 'kv' }, h('span', {}, '离线可用'), status), h('div', { class: 'kv' }, h('span', {}, '持久存储'), persist), h('div', { class: 'kv' }, h('span', {}, '已占用空间'), usage), h('div', { class: 'kv' }, h('span', {}, '数据库'), h('span', { class: 'muted' }, ctx.repoKind === 'memory' ? '临时（不会保存！）' : '本机 IndexedDB'))),
+        h('div', { class: 'card flat' }, h('div', { class: 'kv' }, h('span', {}, '离线可用'), status), h('div', { class: 'kv' }, h('span', {}, '持久存储'), persist), h('div', { class: 'kv' }, h('span', {}, '已占用空间'), usage), h('div', { class: 'kv' }, h('span', {}, '数据库'), h('span', { class: 'muted' }, ctx.repoKind === 'memory' ? '临时（不会保存！）' : '本机'))),
         persistBtn,
       );
     },
@@ -352,14 +376,15 @@ export function buildSettings(ctx, opts = {}) {
     id: 'about',
     title: '关于',
     sig: () => '',
-    build: () =>
-      h(
+    build: () => {
+      const btn = button('检查更新', () => checkForUpdate(btn), { sm: true, kind: 'secondary', iconName: 'repeat' });
+      return h(
         'div',
-        { class: 'card flat stack' },
-        h('div', { class: 'kv' }, h('span', {}, APP_NAME), h('span', { class: 'muted' }, `版本 ${APP_VERSION}`)),
-        h('p', { class: 'small' }, '完全离线：除了第一次安装，这个 App 不联网，不上传任何数据，也不连接支付宝、微信、币安或银行，不保存任何账户密码。页面的安全策略（CSP）还禁止它向其他网站发起连接。'),
-        h('p', { class: 'small muted' }, '资产快照账本——记的是某一天各渠道的余额，不是每笔收支。'),
-      ),
+        { class: 'stack' },
+        h('div', { class: 'list' }, row(APP_NAME, `版本 ${APP_VERSION}`, btn)),
+        h('p', { class: 'hint' }, '完全离线，不上传任何数据，不连接任何账户。'),
+      );
+    },
   });
 
   /* 危险操作 */

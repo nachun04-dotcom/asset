@@ -14,7 +14,7 @@ export function backupNote(store, ctx) {
   const { snapshots, meta, settings } = store.state;
   if (!snapshots.length) return null;
   let text = '';
-  if (!meta.lastBackupAt) text = '还没有备份过，数据只在这台手机上';
+  if (!meta.lastBackupAt) text = '还没有备份过';
   else {
     const days = dayDiff(meta.lastBackupAt.slice(0, 10), todayISO());
     if (days >= settings.backupRemindDays) text = `已经 ${days} 天没有备份了`;
@@ -44,7 +44,7 @@ export function buildHome(ctx) {
         emptyState({
           glyph: 'ledger',
           title: '还没有记录',
-          text: '记下某一天各个账户的余额，App 会帮你算出总资产、画出变化。也可以把以前手写的记录导入进来。',
+          text: '记下各账户的余额，自动算出总资产和变化。',
           actions: [button('记下今天的余额', () => nav.openEntry({}), { iconName: 'plus', block: true }), button('导入以前的记录', () => nav.goto('import'), { kind: 'secondary', iconName: 'download', block: true })],
         }),
       );
@@ -66,7 +66,7 @@ export function buildHome(ctx) {
           { class: 'notes', style: 'margin-bottom:14px' },
           noteBox(
             'warn',
-            [h('b', {}, `${formatDateZh(newest.date, { year: false })}的记录不完整`), h('div', { class: 'small' }, `缺 ${miss.join('、') || '部分账户'}，所以不计入总资产。${comp ? `下面是 ${formatDateZh(comp.date, { year: false })} 的完整记录。` : ''}`)],
+            [h('b', {}, `${formatDateZh(newest.date, { year: false })}未填完`), h('div', { class: 'small' }, `缺 ${miss.join('、') || '部分账户'}，暂不计入总资产`)],
             [button('补全这一条', () => nav.openEntry({ id: newest.id }), { sm: true, kind: 'secondary' })],
           ),
         ),
@@ -99,7 +99,7 @@ export function buildHome(ctx) {
       });
       frag.push(cover);
     } else {
-      frag.push(coverCard({ label: '暂时算不出总资产', dateText, fen: null, complete: false, unit, changeNote: '还没有一条完整的记录。补全各账户的金额后，这里才会显示总资产。' }));
+      frag.push(coverCard({ label: '暂时算不出总资产', dateText, fen: null, complete: false, unit, changeNote: '补全各账户金额后显示总资产' }));
     }
 
     // 阶段变化：较上月末 / 今年 / 历史最高
@@ -115,7 +115,7 @@ export function buildHome(ctx) {
         'button',
         { type: 'button', class: 'cta', onClick: () => nav.openEntry(todays ? { id: todays.id } : {}) },
         h('span', { class: 'cta-ico' }, icon(todays ? 'edit' : 'plus', { size: 20, stroke: 2 })),
-        h('span', { class: 'grow' }, h('span', { class: 'ct' }, todays ? '修改今天的记录' : '更新今天的余额'), h('span', { class: 'cs' }, todays ? '今天已经记录过，可以随时修改' : lastDays > 0 ? `上次记录在 ${relativeDaysZh(newest.date)}，约 1 分钟填完` : '记下各账户现在的余额')),
+        h('span', { class: 'grow' }, h('span', { class: 'ct' }, todays ? '修改今天的记录' : '更新今天的余额'), h('span', { class: 'cs' }, todays ? '今天已记录' : lastDays > 0 ? `上次 ${relativeDaysZh(newest.date)}` : '记下各账户的余额')),
         icon('chevronR', { size: 18 }),
       ),
     );
@@ -144,9 +144,6 @@ export function buildHome(ctx) {
       frag.push(h('section', { class: 'section' }, sectionHead('资产', h('span', { class: 'muted small' }, when)), accountRows({ snap: shown, categories, unit, cmp, group: true, only: (c) => c.enabled && !isDebt(c) })));
       frag.push(h('section', { class: 'section' }, sectionHead('负债', h('span', { class: 'muted small' }, '合计欠 ', h('span', { class: 'mask' }, formatMoney(sp.debts, unit)))), accountRows({ snap: shown, categories, unit, cmp, group: true, only: (c) => c.enabled && isDebt(c) }), offNote));
     }
-
-    // 去分析页的入口
-    frag.push(h('button', { type: 'button', class: 'go-card', onClick: () => nav.goto('analysis') }, h('span', { class: 'ico' }, icon('pie', { size: 20 })), h('span', { class: 'grow' }, h('span', { class: 'gt' }, '查看分析'), h('span', { class: 'gs' }, '资产配置 · 趋势 · 每月变化')), icon('chevronR', { size: 18 })));
 
     root.replaceChildren(...frag);
   };

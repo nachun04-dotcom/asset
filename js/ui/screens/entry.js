@@ -9,7 +9,6 @@ import { dayDiff, formatDateZh, isISODate, relativeDaysZh, todayISO } from '../.
 import { cleanName, enabledCategories, groupKey, isDebt, nameKey, sortedCategories, suggestSiblingName } from '../../core/model.js';
 import { findByDate, hasValue, isComplete, recordedTotal, sortDesc } from '../../core/ledger.js';
 import { displayCategories } from '../snapshotView.js';
-import { addDebtAccount, renameCategory, toggleDebt } from '../categoryActions.js';
 import { confirmDeleteCategory, dragHandle, groupedSortable, openCategoryEditor } from '../categoryEditor.js';
 
 const newRow = () => ({ text: '', fxOn: false, cur: '', orig: '' });
@@ -190,7 +189,7 @@ export function openEntry(ctx, { id = null, date = null } = {}) {
     ui.reuse.disabled = !canReuse;
     ui.reuse.classList.toggle('done', !canReuse);
     ui.reuseTitle.textContent = canReuse ? '一键沿用上次金额' : `已沿用 ${st.reusedCount} 项上次金额`;
-    ui.reuseSub.textContent = canReuse ? `${reusable} 个空着的账户填入上次余额，只改有变化的` : '有变化的账户直接改金额就行';
+    ui.reuseSub.textContent = canReuse ? `${reusable} 个空账户填入上次余额` : '有变化的直接改金额';
     ui.reuse.setAttribute('aria-label', canReuse ? `把空着的 ${reusable} 项都沿用上次的金额` : ui.reuseTitle.textContent);
 
     // 底部：合计（不完整时绝不叫「总资产」）
@@ -209,7 +208,7 @@ export function openEntry(ctx, { id = null, date = null } = {}) {
     const dup = dupRecord();
     let reason = '';
     if (!isISODate(st.date)) reason = '请选择有效的日期';
-    else if (dup) reason = '这一天已有记录，请先载入它再修改';
+    else if (dup) reason = '这一天已有记录';
     else if (ev.hasError) reason = '有金额写得不对，请先改正标红的地方';
     const note = reason || (ev.count > 0 && !ev.complete ? `还缺：${ev.missing.map(catName).join('、')}` : '');
     ui.msg.textContent = note;
@@ -237,8 +236,8 @@ export function openEntry(ctx, { id = null, date = null } = {}) {
     ui.dup.appendChild(
       noteBox(
         'warn',
-        [h('b', {}, `${formatDateZh(st.date)}已经有一条记录`), h('div', { class: 'small' }, `${other.complete ? '总资产' : '已记录合计'} ${formatMoney(total, st.unit)}（${other.complete ? '完整' : '不完整'}）。请载入它再修改，避免悄悄覆盖。`)],
-        [button('载入这条记录来修改', () => loadOther(other), { sm: true, kind: 'secondary' })],
+        [h('b', {}, `${formatDateZh(st.date, { year: false })}已有记录`), h('div', { class: 'small' }, `${other.complete ? '总资产' : '合计'} ${formatMoney(total, st.unit)}${other.complete ? '' : '（未填完）'}`)],
+        [button('打开修改', () => loadOther(other), { sm: true, kind: 'secondary' })],
       ),
     );
   }
@@ -349,37 +348,17 @@ export function openEntry(ctx, { id = null, date = null } = {}) {
       await opt.close();
       if (on) refs.get(cat.id)?.cur.focus();
     }, `${cat.name}：非人民币资产`);
-    const debtSw = switchControl(isDebt(cat), async (on) => {
-      await opt.close();
-      if (await toggleDebt(store, cat.id, on)) rebuild();
-    }, `${cat.name}：负债`);
-    // 任何账户都能删：有金额时会说清楚要删掉多少笔，并建议改为「停用」
-    const del = button('删除这个账户', async () => {
-      if (!(await confirmDeleteCategory(store, cat.id))) return;
-      st.rows.delete(cat.id);
-      await opt.close();
-      rebuild();
-    }, { kind: 'danger', block: true, iconName: 'trash' });
-    const edit = h('button', { type: 'button', class: 'item', onClick: async () => {
-      await opt.close();
-      openCategoryEditor(store, cat.id, { onChange: rebuild });
-    } }, h('span', { class: 'ico' }, icon('sliders', { size: 18 })), h('span', { class: 'grow' }, h('div', { class: 'title' }, '换图标 · 停用'), h('div', { class: 'meta' }, '停用后记一笔和首页都不再显示它')), icon('chevronR', { size: 18 }));
-    const rename = h('button', { type: 'button', class: 'item', onClick: async () => {
-      await opt.close();
-      if (await renameCategory(store, cat.id)) rebuild();
-    } }, h('span', { class: 'ico' }, icon('edit', { size: 18 })), h('span', { class: 'grow' }, h('div', { class: 'title' }, '改名'), h('div', { class: 'meta' }, `现在叫「${cat.name}」，以前的记录会一起改`)), icon('chevronR', { size: 18 }));
-    const sibling = h('button', { type: 'button', class: 'item', onClick: async () => {
-      await opt.close();
-      addSibling(cat);
-    } }, h('span', { class: 'ico' }, icon('plus', { size: 18 })), h('span', { class: 'grow' }, h('div', { class: 'title' }, `再添加一个「${rootName(cat)}」账户`), h('div', { class: 'meta' }, '例如有两个支付宝，分开记录')), icon('chevronR', { size: 18 }));
+    // 改名、图标、负债、停用、删除都在「编辑账户」里，菜单只留三项
+    const item = (ic, title, meta, fn) => h('button', { type: 'button', class: 'item', onClick: async () => { await opt.close(); fn(); } }, h('span', { class: 'ico' }, icon(ic, { size: 18 })), h('span', { class: 'grow' }, h('div', { class: 'title' }, title), meta ? h('div', { class: 'meta' }, meta) : null), icon('chevronR', { size: 18 }));
     const opt = openSheet({
       title: cat.name,
       auto: true,
       body: h(
         'div',
-        { class: 'stack' },
-        h('div', { class: 'list' }, rename, edit, sibling, h('div', { class: 'setting' }, h('div', { class: 'grow' }, h('div', {}, '这是负债'), h('div', { class: 'desc' }, '信用卡、花呗、贷款等：填欠款金额（正数），自动从资产里减去')), debtSw), h('div', { class: 'setting' }, h('div', { class: 'grow' }, h('div', {}, '非人民币资产'), h('div', { class: 'desc' }, '金额栏填折算后的人民币；币种和原币数量记在下面作依据。App 不会自动换汇。')), sw)),
-        del,
+        { class: 'list' },
+        item('edit', '编辑账户', '名称、图标、负债、停用、删除', () => openCategoryEditor(store, cat.id, { onChange: rebuild })),
+        item('plus', `再添加一个「${rootName(cat)}」`, '同类多个账户分开记', () => addSibling(cat)),
+        h('div', { class: 'setting' }, h('div', { class: 'grow' }, h('div', {}, '非人民币'), h('div', { class: 'desc' }, '填折算后的人民币，原币记在下面')), sw),
       ),
     });
   }
@@ -504,7 +483,7 @@ export function openEntry(ctx, { id = null, date = null } = {}) {
     return h(
       'div',
       { class: 'entry manage' },
-      h('p', { class: 'hint manage-hint' }, '直接点名字改名 · 点图标换图标或停用 · 按住 ≡ 拖动排序'),
+      h('p', { class: 'hint manage-hint' }, '点名字改名 · 点图标更多设置 · 按住 ≡ 排序'),
       list,
       h('div', { class: 'add-cat card' }, h('div', { class: 'row between' }, h('span', { class: 'label' }, '新增账户'), kind), h('div', { class: 'row' }, h('div', { class: 'grow' }, newName), button('添加', add, { kind: 'secondary', iconName: 'plus' }))),
       button('完成，回到记账', () => setManage(false), { block: true }),
@@ -559,10 +538,6 @@ export function openEntry(ctx, { id = null, date = null } = {}) {
     const assetGroups = groups.filter((g) => !isDebt(g[0]));
     const debtGroups = groups.filter((g) => isDebt(g[0]));
     const cards = [...(assetGroups.length ? [card(assetGroups)] : []), ...(debtGroups.length ? [h('div', { class: 'list-label' }, '负债'), card(debtGroups)] : [])];
-    const reorder = h('button', { type: 'button', class: 'link-btn', onClick: () => setManage(true) }, icon('sliders', { size: 15, stroke: 2 }), '管理账户（改名 · 排序 · 删除）');
-    const addDebt = h('button', { type: 'button', class: 'link-btn', onClick: async () => {
-      if (await addDebtAccount(store)) rebuild();
-    } }, icon('plus', { size: 14, stroke: 2.2 }), debtGroups.length ? '再添加负债账户' : '添加负债账户（信用卡、花呗、贷款）');
 
     const note = h('textarea', { rows: '2', placeholder: '备注，例如：买了新手机，花了 5,000 元', 'aria-label': '备注', maxlength: 500 }, st.note);
     note.value = st.note;
@@ -589,7 +564,7 @@ export function openEntry(ctx, { id = null, date = null } = {}) {
         } }, icon('trash', { size: 16 }), '删除这条记录')
       : null;
 
-    return h('div', { class: 'entry' }, h('div', { class: 'entry-bar' }, chip, unitSeg), ui.future, ui.dup, ui.reuse, h('div', { class: 'acct-list' }, ...cards), h('div', { class: 'entry-extra' }, h('div', { class: 'extra-links' }, reorder, addDebt), addNote, noteWrap), del);
+    return h('div', { class: 'entry' }, h('div', { class: 'entry-bar' }, chip, unitSeg), ui.future, ui.dup, ui.reuse, h('div', { class: 'acct-list' }, ...cards), h('div', { class: 'entry-extra' }, addNote, noteWrap), del);
   }
 
   /* ------------------------------ 保存 ------------------------------ */

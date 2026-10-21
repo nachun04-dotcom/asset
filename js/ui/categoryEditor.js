@@ -103,30 +103,44 @@ export function makeSortable(list, onSort) {
 export function groupedSortable(store, renderRow, { className = '' } = {}) {
   const cats = sortedCategories(store.state.categories);
   const ids = new Set(cats.map((c) => c.id));
-  const roots = cats.filter((c) => !c.group || !ids.has(c.group) || c.group === c.id);
-  const kidsOf = (id) => cats.filter((c) => c.group === id && c.id !== id);
+  const keyOf = (c) => (c.group && ids.has(c.group) ? c.group : c.id);
+  // 和首页一样：只有一个账户的类别就是一行；有多个账户的类别，先是一行类别标题，下面列出它的全部账户（包括同名的第一个）
+  const groups = [];
+  const byKey = new Map();
+  for (const c of cats) {
+    const k = keyOf(c);
+    if (!byKey.has(k)) {
+      byKey.set(k, []);
+      groups.push(k);
+    }
+    byKey.get(k).push(c);
+  }
   const outer = h('div', { class: ['list', 'sort-list', 'grouped', className] });
   const save = async () => {
-    // 按页面上现在的顺序读出来：每个大类后面紧跟它的小类
-    const order = [...outer.children].flatMap((g) => [g.dataset.id, ...[...(g.querySelector(':scope > .sort-children')?.children ?? [])].map((r) => r.dataset.id)]);
+    const order = [...outer.children].flatMap((g) => {
+      const kids = g.querySelector(':scope > .sort-children');
+      return kids ? [...kids.children].map((r) => r.dataset.id) : [g.dataset.id];
+    });
     const byId = new Map(store.state.categories.map((c) => [c.id, c]));
     const r = await store.saveCategories(order.map((x) => byId.get(x)).filter(Boolean));
     if (!r.ok) toast(r.message);
   };
-  for (const root of roots) {
-    const grp = h('div', { class: 'sort-group', 'data-id': root.id }, renderRow(root, false));
-    const kids = kidsOf(root.id);
-    if (kids.length) {
-      const inner = h('div', { class: 'sort-children' });
-      for (const k of kids) {
-        const row = renderRow(k, true);
-        row.dataset.id = k.id;
-        inner.appendChild(row);
-      }
-      makeSortable(inner, save);
-      grp.appendChild(inner);
+  for (const k of groups) {
+    const members = byKey.get(k);
+    if (members.length === 1) {
+      outer.appendChild(h('div', { class: 'sort-group', 'data-id': k }, renderRow(members[0], false)));
+      continue;
     }
-    outer.appendChild(grp);
+    const root = cats.find((c) => c.id === k) ?? members[0];
+    const head = h('div', { class: 'grp-head' }, catIcon(root, store.state.categories, { size: 32 }), h('span', { class: 'grp-name' }, root.name, h('span', { class: 'grp-count' }, `${members.length} 个账户`)), dragHandle(`${root.name}这一组`));
+    const inner = h('div', { class: 'sort-children' });
+    for (const m of members) {
+      const row = renderRow(m, true);
+      row.dataset.id = m.id;
+      inner.appendChild(row);
+    }
+    makeSortable(inner, save);
+    outer.appendChild(h('div', { class: 'sort-group multi', 'data-id': k }, head, inner));
   }
   makeSortable(outer, save);
   return outer;
@@ -251,12 +265,12 @@ export function openCategoryEditor(store, id, { onChange } = {}) {
         'div',
         { class: 'stack edit-cat' },
         h('div', { class: 'edit-hero' }, catIcon(cat, store.state.categories, { size: 56 }), h('div', { class: 'grow' }, h('div', { class: 'eh-name' }, cat.name), h('div', { class: 'eh-sub' }, cat.debt ? '负债账户' : '资产账户', cat.enabled ? '' : ' · 已停用'))),
-        h('div', { class: 'field' }, h('span', { class: 'label' }, '名称'), h('div', { class: 'row' }, h('div', { class: 'grow' }, name), saveBtn), h('span', { class: 'hint' }, '改名后，以前的记录也会显示新名字，金额不受影响。')),
+        h('div', { class: 'field' }, h('span', { class: 'label' }, '名称'), h('div', { class: 'row' }, h('div', { class: 'grow' }, name), saveBtn), h('span', { class: 'hint' }, '历史记录会一起改名')),
         h(
           'div',
           { class: 'list' },
-          h('div', { class: 'setting' }, h('div', { class: 'grow' }, h('div', {}, '启用'), h('div', { class: 'desc' }, '关掉后，首页和记一笔都不再显示它；历史数据保留，随时可以再打开')), enableSw),
-          h('div', { class: 'setting' }, h('div', { class: 'grow' }, h('div', {}, '这是负债'), h('div', { class: 'desc' }, '信用卡、花呗、贷款等：记账时填欠款金额（正数），自动从资产里减去')), debtSw),
+          h('div', { class: 'setting' }, h('div', { class: 'grow' }, h('div', {}, '启用'), h('div', { class: 'desc' }, '关掉后不再显示，历史数据保留')), enableSw),
+          h('div', { class: 'setting' }, h('div', { class: 'grow' }, h('div', {}, '这是负债'), h('div', { class: 'desc' }, '填欠款金额，自动从资产中扣除')), debtSw),
         ),
         h('div', { class: 'field' }, h('span', { class: 'label' }, '图标'), iconPicker(cat, store.state.categories, nowKey, choose), cat.icon ? button('恢复默认图标', () => choose(null), { kind: 'ghost', sm: true }) : null),
         button('删除这个账户', async () => {
