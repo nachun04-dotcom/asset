@@ -18,6 +18,9 @@ export function normalizeAmountText(input) {
   let t = String(input ?? '').normalize('NFKC');
   t = t.replace(/[−–—]/g, '-');
   t = t.replace(/[¥￥\s_]/g, '');
+  // 部分安卓键盘的小数点是逗号：「1234,56」「0,5」这类（逗号后只有 1～2 位、没有句点）按小数处理；
+  // 「1,234」这类逗号后正好 3 位的仍当作千分位
+  if (/^[+-]?\d+,\d{1,2}$/.test(t)) t = t.replace(',', '.');
   return t;
 }
 

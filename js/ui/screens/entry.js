@@ -211,7 +211,10 @@ export function openEntry(ctx, { id = null, date = null } = {}) {
     ui.msg.textContent = note;
     ui.msg.hidden = !note;
     ui.msg.classList.toggle('err', !!reason);
-    ui.save.disabled = !!reason || ev.count === 0; // 什么都没填时只是安静地不能保存，不用红字吓人
+    // 「保存」不再变成真正的 disabled（那样点了毫无反应，也看不到原因）：看起来变淡，点了会说明为什么不能保存
+    ui.blocked = reason || (ev.count === 0 ? '先填至少一个账户的金额' : '');
+    ui.save.classList.toggle('off', !!ui.blocked);
+    ui.save.setAttribute('aria-disabled', String(!!ui.blocked));
     return ev;
   }
 
@@ -514,11 +517,24 @@ export function openEntry(ctx, { id = null, date = null } = {}) {
 
   /* ------------------------------ 保存 ------------------------------ */
 
+  let saving = false;
   async function save() {
+    if (saving) return;
     const ev = recalc();
-    if (ui.save.disabled) return;
+    if (ui.blocked) {
+      toast(ui.blocked);
+      return;
+    }
+    saving = true;
     ui.save.disabled = true;
-    const res = await store.saveSnapshot({ id: st.id, date: st.date, note: st.note.trim(), entries: ev.entries, source: 'manual' });
+    let res;
+    try {
+      res = await store.saveSnapshot({ id: st.id, date: st.date, note: st.note.trim(), entries: ev.entries, source: 'manual' });
+    } catch (e) {
+      res = { ok: false, message: `保存失败：${e?.message ?? e}` };
+    }
+    saving = false;
+    ui.save.disabled = false;
     if (!res.ok) {
       recalc();
       return alertDialog({ title: res.code === 'DUP_DATE' ? '这一天已有记录' : '没有保存', message: res.message });
@@ -535,7 +551,8 @@ export function openEntry(ctx, { id = null, date = null } = {}) {
   ui.stamp = h('span', {});
   ui.big = h('span', { class: 'big num' });
   ui.msg = h('div', { class: 'msg', role: 'status', hidden: true });
-  ui.save = button('保存', save);
+  // 按下「保存」时不让输入框失去焦点：否则键盘先收起、底栏跟着下移，有些浏览器会因此把这次点击落空
+  ui.save = keepFocus(button('保存', save));
   ui.progress = h('span', { class: 'prog' });
   ui.bar = h('i', {});
   const foot = h('div', { class: 'entry-foot' }, h('div', { class: 'fill-bar', 'aria-hidden': 'true' }, ui.bar), h('div', { class: 'sum', 'aria-live': 'polite' }, h('div', { class: 'cap' }, ui.lbl, ui.stamp, ui.progress), ui.big), ui.save, ui.msg);
