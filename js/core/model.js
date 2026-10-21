@@ -29,6 +29,7 @@ export const DEFAULT_SETTINGS = Object.freeze({
   goalFen: null, // 财富目标（分），null = 未设定
   sound: true, // 操作音效
   haptics: true, // 触感震动
+  liveGrowth: true, // 首页净资产按近一年增速每秒实时增长（估算）
 });
 
 export const SOURCE_LABELS = Object.freeze({

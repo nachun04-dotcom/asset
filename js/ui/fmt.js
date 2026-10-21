@@ -62,7 +62,7 @@ export function animateHero(hero, fen, unit) {
   if (!intEl) return;
   const target = Math.abs(fen);
   const paint = (v) => {
-    const [i, d] = formatDecimal(v, unit, { minDecimals: decEl ? 2 : 0 }).split('.');
+    const [i, d] = (hero.classList.contains('live') ? liveParts(v, unit) : formatDecimal(v, unit, { minDecimals: decEl ? 2 : 0 }).split('.'));
     intEl.textContent = i;
     if (decEl) decEl.textContent = d ? `.${d}` : '';
   };
@@ -91,6 +91,43 @@ export function animateHero(hero, fen, unit) {
     cancelAnimationFrame(hero._raf);
     done();
   }, dur + 200); // 动画帧被暂停（切到后台）时也保证最后是准确的数
+}
+
+/** 实时估算的金额拆成整数和小数：万元时显示到元（四位小数），每秒的增长才看得见。 */
+function liveParts(fen, unit) {
+  const text = unit === 'wan' ? formatDecimal(Math.round(fen / 100) * 100, 'wan', { minDecimals: 4 }) : formatDecimal(fen, unit, { minDecimals: 2 });
+  return text.split('.');
+}
+
+/**
+ * 净资产实时增长：从记录那一刻起按 perSec（分/秒）线性增长，每秒刷新一次。
+ * 返回现在的估算值。封面离开页面后计时器自己停下；欢迎动画播放时让路。
+ */
+export function liveHero(hero, { fen0, t0, perSec, unit }) {
+  const intEl = hero?.querySelector('.int');
+  if (!intEl) return fen0;
+  let decEl = hero.querySelector('.dec');
+  if (!decEl) {
+    decEl = h('span', { class: 'dec' });
+    intEl.after(decEl);
+  }
+  const at = () => Math.round(fen0 + (perSec * Math.max(0, Date.now() - t0)) / 1000);
+  const paint = () => {
+    const [i, d] = liveParts(at(), unit);
+    intEl.textContent = i;
+    decEl.textContent = `.${d}`;
+  };
+  hero.classList.add('live');
+  paint();
+  const timer = setInterval(() => {
+    if (!hero.isConnected) return clearInterval(timer);
+    if (document.hidden || hero.classList.contains('counting')) return;
+    paint();
+    decEl.classList.remove('tick');
+    void decEl.offsetWidth; // 重新触发小数部分的微光
+    decEl.classList.add('tick');
+  }, 1000);
+  return at();
 }
 
 /** 变化量：始终带三角与正负号，颜色只是辅助（涨跌配色可在设置里对调）。 */

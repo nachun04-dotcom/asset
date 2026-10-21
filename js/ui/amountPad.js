@@ -1,5 +1,5 @@
 // 记一笔专用的金额键盘：不弹系统键盘，版面不会被顶起；带加减，右下角「完成」。
-// 只管「算式」本身：数字、小数点、+ −、退格（长按清空）；结果怎么用由调用方决定。
+// 只管「算式」本身：数字、小数点、+ −、退格、清空；结果怎么用由调用方决定。
 import { h, icon } from './dom.js';
 import { parseAmount } from '../core/money.js';
 import { fx, iosHaptic } from './feedback.js';
@@ -43,6 +43,7 @@ export function prettyExpr(expr) {
 
 /**
  * @param {{ decimals: () => number, onChange: (expr: string) => void, onNext: () => void, onDone: () => void }} opts
+ * onNext 只给实体键盘的 Enter / Tab 用（跳到下一栏）；屏幕键盘上那个位置是「清空」。
  */
 export function amountPad({ decimals, onChange, onNext, onDone }) {
   let expr = '';
@@ -88,7 +89,7 @@ export function amountPad({ decimals, onChange, onNext, onDone }) {
     return b;
   };
   const back = key(icon('backspace', { size: 24, stroke: 1.7 }), 'back', 'fn', '退格（长按清空）');
-  const next = key(h('span', { class: 'pk-next' }, icon('chevronD', { size: 18, stroke: 2 }), '下一项'), 'next', 'fn sm', '下一项');
+  const clear = key('清空', 'clear', 'fn sm', '清空这一栏');
   const done = key('完成', 'done', 'done');
   const grid = h(
     'div',
@@ -96,7 +97,7 @@ export function amountPad({ decimals, onChange, onNext, onDone }) {
     key('1', '1'), key('2', '2'), key('3', '3'), back,
     key('4', '4'), key('5', '5'), key('6', '6'), key('−', '−', 'op', '减'),
     key('7', '7'), key('8', '8'), key('9', '9'), key('+', '+', 'op', '加'),
-    key('.', '.', 'pt', '小数点'), key('0', '0'), next, done,
+    key('.', '.', 'pt', '小数点'), key('0', '0'), clear, done,
   );
   // 键盘顶上一行：正在填的账户 · 算式 · = 结果（有加减时结果用金色突出）
   const calcName = h('span', { class: 'pc-name' });
@@ -112,8 +113,11 @@ export function amountPad({ decimals, onChange, onNext, onDone }) {
     e.preventDefault();
     b.classList.add('down');
     const k = b.dataset.k;
-    if (k === 'next') return fx.select(), onNext();
     if (k === 'done') return fx.done(), onDone();
+    if (k === 'clear') {
+      if (expr) fx.remove();
+      return press('clear');
+    }
     if (k === 'back') fx.back();
     else fx.key();
     press(k);
@@ -139,8 +143,7 @@ export function amountPad({ decimals, onChange, onNext, onDone }) {
     const b = e.target.closest('.pk');
     if (!b) return;
     const k = b.dataset.k;
-    if (k === 'next') onNext();
-    else if (k === 'done') onDone();
+    if (k === 'done') onDone();
     else press(k);
   });
 
@@ -154,9 +157,6 @@ export function amountPad({ decimals, onChange, onNext, onDone }) {
     },
     get expr() {
       return expr;
-    },
-    setNext(ok) {
-      next.disabled = !ok;
     },
     /** 更新顶上那一行：name 账户名，text 算式（已排好版），result 有加减时的结果文本。 */
     show({ name = '', text = '', result = '' } = {}) {

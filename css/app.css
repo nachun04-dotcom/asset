@@ -1064,7 +1064,6 @@ html.kb-open .toasts { bottom: calc(var(--kb, 0px) + 64px); }
 .pk.op.down { background: color-mix(in srgb, var(--gold) 24%, var(--surface)); }
 .pk.pt { font-size: 30px; padding-bottom: 8px; }
 .pk.sm { font: 500 13px/1 var(--font-ui); letter-spacing: 0.06em; }
-.pk-next { display: inline-flex; align-items: center; gap: 2px; }
 .pk:disabled { opacity: 0.4; }
 .pk.done { background: var(--brand); color: var(--brand-ink); font: 600 16px/1 var(--font-ui); letter-spacing: 0.2em; padding-left: 0.2em; box-shadow: 0 6px 16px -8px rgba(20, 14, 4, 0.6), inset 0 0 0 1px var(--gold-line); }
 .pk.done.down { filter: brightness(1.12); }
@@ -1106,6 +1105,19 @@ html.kb-open .toasts { bottom: calc(var(--kb, 0px) + 64px); }
 }
 @keyframes hero-shine { from { background-position: 100% 0; } to { background-position: 0% 0; } }
 @media (prefers-reduced-motion: reduce) { .cover.welcome, .cover .hero.shine { animation: none; } }
+
+/* ---------- 首页净资产实时增长：数字等宽不抖动，小数每秒泛一下金光 ---------- */
+.cover .hero.live .int, .cover .hero.live .dec { font-variant-numeric: lining-nums tabular-nums; }
+.cover .hero.live { margin-bottom: 8px; }
+.hero .dec.tick { animation: dec-tick 0.9s ease-out; }
+@keyframes dec-tick { from { color: #f6d993; -webkit-text-fill-color: #f6d993; } }
+.cover-live { display: flex; align-items: center; gap: 7px; margin-bottom: 14px; font-size: 12px; letter-spacing: 0.08em; color: var(--ivory-3); }
+.cover-live b { font-weight: 500; color: var(--gold-soft); font-variant-numeric: tabular-nums; letter-spacing: 0.02em; }
+.cover-live .sep { width: 1px; height: 10px; background: rgba(214, 186, 128, 0.3); }
+.cover-live .pulse { position: relative; width: 6px; height: 6px; border-radius: 50%; background: var(--gold-soft); flex: none; }
+.cover-live .pulse::after { content: ""; position: absolute; inset: 0; border-radius: 50%; background: var(--gold-soft); animation: live-pulse 2s ease-out infinite; }
+@keyframes live-pulse { from { transform: scale(1); opacity: 0.7; } to { transform: scale(3.2); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .hero .dec.tick, .cover-live .pulse::after { animation: none; } }
 
 /* ---------- 记一笔顶部的小提示：一行、可关闭，不再占一大块 ---------- */
 .notice { display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 4px 4px 4px 12px; border-radius: 12px; background: var(--amber-bg); border: 1px solid color-mix(in srgb, var(--amber-line) 70%, transparent); color: var(--amber); font-size: 13px; }

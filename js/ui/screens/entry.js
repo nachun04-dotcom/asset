@@ -735,7 +735,6 @@ export function openEntry(ctx, { id = null, date = null } = {}) {
     ref?.amt.classList.add('active');
     pad.start(st.rows.get(cid)?.text ?? '');
     showCalc(pad.expr);
-    pad.setNext(!!nextCid(cid));
     sheet.el.classList.add('kp-open');
     // 键盘升起后可视区变小：把正在填的这一行刚好露出来
     setTimeout(() => {

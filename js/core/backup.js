@@ -147,6 +147,7 @@ export function validatePayload(p) {
   if (typeof s.hideAmounts === 'boolean') settings.hideAmounts = s.hideAmounts;
   if (typeof s.sound === 'boolean') settings.sound = s.sound;
   if (typeof s.haptics === 'boolean') settings.haptics = s.haptics;
+  if (typeof s.liveGrowth === 'boolean') settings.liveGrowth = s.liveGrowth;
   if (Number.isSafeInteger(s.goalFen) && s.goalFen > 0) settings.goalFen = s.goalFen;
   if (Number.isInteger(s.backupRemindDays) && s.backupRemindDays >= 1 && s.backupRemindDays <= 365) settings.backupRemindDays = s.backupRemindDays;
 

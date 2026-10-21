@@ -2,12 +2,12 @@
 import { h, icon } from '../dom.js';
 import { button, emptyState, noteBox, seg } from '../components.js';
 import { accountRows, coverCard } from '../snapshotView.js';
-import { animateHero } from '../fmt.js';
+import { animateHero, liveHero } from '../fmt.js';
 import { goalBlock, kpiRow } from '../insights.js';
-import { compareSnapshots, findByDate, latestComplete, latestOverall, missingIds, previousCompleteOf, recordedTotal } from '../../core/ledger.js';
+import { compareSnapshots, findByDate, growthRate, latestComplete, latestOverall, missingIds, previousCompleteOf, recordedTotal } from '../../core/ledger.js';
 import { checkSnapshot } from '../../core/anomalies.js';
 import { isDebt, splitTotals } from '../../core/model.js';
-import { formatMoney } from '../../core/money.js';
+import { formatMoney, formatSigned } from '../../core/money.js';
 import { dayDiff, formatDateZh, relativeDaysZh, todayISO } from '../../core/date.js';
 
 /** 备份提醒：只占一行，点一下去备份；不抢首页的视线。 */
@@ -22,6 +22,14 @@ export function backupNote(store, ctx) {
   }
   if (!text) return null;
   return h('button', { type: 'button', class: 'nudge', onClick: () => ctx.nav.goto('settings', { focus: 'backup' }) }, icon('shield', { size: 18 }), h('span', { class: 'grow' }, text), h('span', { class: 'go' }, '去备份'), icon('chevronR', { size: 16 }));
+}
+
+/** 记录的时刻：当天新建的用创建时间，补记的旧日期按当天中午算。 */
+function recordTime(snap) {
+  const c = snap.createdAt ? new Date(snap.createdAt) : null;
+  if (c && !Number.isNaN(c.getTime()) && todayISO(c) === snap.date) return c.getTime();
+  const [y, m, d] = snap.date.split('-').map(Number);
+  return new Date(y, m - 1, d, 12).getTime();
 }
 
 const sectionHead = (title, right = null) => h('div', { class: 'sect-head' }, h('h2', { class: 'section-title' }, title), right);
@@ -100,10 +108,19 @@ export function buildHome(ctx) {
         if (!e.target.closest('button')) nav.openDetail(comp.id);
       });
       frag.push(cover);
+      // 实时增长：按近一年的平均增速，从这条记录起每秒往上加（估算，不改任何数据）
+      const hero = cover.querySelector('.hero');
+      let heroFen = recordedTotal(comp);
+      const rate = settings.liveGrowth !== false && !settings.hideAmounts && heroFen > 0 ? growthRate(snapshots) : null;
+      if (rate) {
+        heroFen = liveHero(hero, { fen0: heroFen, t0: recordTime(comp), perSec: rate.perSec, unit });
+        const per = rate.perSec >= 1 ? ['每秒', rate.perSec] : ['每天', rate.perSec * 86400];
+        hero.after(h('div', { class: 'cover-live', title: `按近 ${rate.days >= 365 ? '一年' : `${rate.days} 天`}的平均增速估算` }, h('i', { class: 'pulse', 'aria-hidden': 'true' }), '实时估算', h('span', { class: 'sep', 'aria-hidden': 'true' }), `${per[0]} `, h('b', { class: 'mask' }, `${formatSigned(Math.max(1, Math.round(per[1])), 'yuan')}`)));
+      }
       if (!welcomed) {
         welcomed = true;
         cover.classList.add('welcome');
-        if (!settings.hideAmounts) animateHero(cover.querySelector('.hero'), recordedTotal(comp), unit);
+        if (!settings.hideAmounts) animateHero(hero, heroFen, unit);
       }
     } else {
       frag.push(coverCard({ label: '暂时算不出总资产', dateText, fen: null, complete: false, unit, changeNote: '补全各账户金额后显示总资产' }));

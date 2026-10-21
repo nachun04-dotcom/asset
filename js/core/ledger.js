@@ -1,5 +1,6 @@
 // 快照账本的纯函数：完整性、总额、对比、图表序列。
 import { changeRatio, sumFen } from './money.js';
+import { dayNumber } from './date.js';
 
 export function hasValue(entry) {
   return !!entry && Number.isInteger(entry.fen);
@@ -132,6 +133,31 @@ export function totalSeries(snaps, { includePartial = false } = {}) {
   return sortAsc(snaps)
     .filter((s) => s.complete || (includePartial && knownIds(s).length > 0))
     .map((s) => ({ date: s.date, fen: recordedTotal(s), complete: s.complete, id: s.id }));
+}
+
+/**
+ * 净资产的平均增速：取最近一条完整记录往前一年内的完整记录做线性拟合（最小二乘），
+ * 不受某一条记录偶然偏高偏低的影响。不到一年的就用全部记录。
+ * 返回 { perSec: 每秒增长的分（可带小数）, days: 拟合跨度 }；记录太少、跨度不到 14 天或在下降时返回 null。
+ */
+export function growthRate(snaps) {
+  const all = totalSeries(snaps).map((p) => ({ x: dayNumber(p.date), y: p.fen }));
+  if (all.length < 2) return null;
+  const end = all[all.length - 1].x;
+  let pts = all.filter((p) => end - p.x <= 365);
+  if (pts.length < 2 || end - pts[0].x < 14) pts = all;
+  const days = end - pts[0].x;
+  if (days < 14) return null;
+  const mx = pts.reduce((a, p) => a + p.x, 0) / pts.length;
+  const my = pts.reduce((a, p) => a + p.y, 0) / pts.length;
+  let num = 0;
+  let den = 0;
+  for (const p of pts) {
+    num += (p.x - mx) * (p.y - my);
+    den += (p.x - mx) ** 2;
+  }
+  const perDay = num / den;
+  return perDay > 0 ? { perSec: perDay / 86400, days } : null;
 }
 
 /** 某类别的变化趋势：只取有金额的记录；未记录的日期不画点，也不当作 0。 */
