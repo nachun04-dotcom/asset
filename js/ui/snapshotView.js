@@ -35,7 +35,7 @@ export function shareBar(snap, categories) {
  * 封面：深色的「存折」卡片，是整个 App 里唯一的视觉焦点。
  * @param change { fen, ratio } 与上一条的变化（可为 null）；changeNote 说明比较对象
  */
-export function coverCard({ label, dateText, fen = null, complete = true, unit, change = null, changeNote = null, note = null, bar = null, split = null, ariaLabel }) {
+export function coverCard({ label, dateText, fen = null, complete = true, unit, change = null, changeNote = null, note = null, bar = null, split = null, owner = null, ariaLabel }) {
   const el = h('section', { class: ['cover', !complete && 'partial'], 'aria-label': ariaLabel ?? label },
     h('div', { class: 'cover-head' }, h('div', { class: 'cover-label' }, label), fen == null ? null : stamp(complete)),
     h('div', { class: 'cover-date' }, dateText),
@@ -49,6 +49,10 @@ export function coverCard({ label, dateText, fen = null, complete = true, unit, 
   if (note) delta.appendChild(note);
   if (delta.childNodes.length) el.appendChild(delta);
   if (bar) el.appendChild(bar);
+  // 卡面底部：持有人名字（设置里可填，留空就不显示）
+  if (owner) el.appendChild(h('div', { class: 'cover-owner' }, h('span', {}, `PRIVATE LEDGER · SINCE ${owner.since}`), h('b', {}, owner.name)));
+  // 卡面光影：倾斜手机时移动的反光层（设置里打开才显示）
+  el.appendChild(h('span', { class: 'cover-sheen', 'aria-hidden': 'true' }));
   return el;
 }
 

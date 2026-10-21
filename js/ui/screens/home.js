@@ -4,6 +4,7 @@ import { button, emptyState, noteBox, openSheet, seg, toast } from '../component
 import { accountRows, coverCard } from '../snapshotView.js';
 import { animateHero } from '../fmt.js';
 import { LIVE_STYLES, liveHero, liveStyleOf } from '../liveNumber.js';
+import { openReport, reportNudge } from '../report.js';
 import { goalBlock, kpiRow } from '../insights.js';
 import { compareSnapshots, findByDate, growthRate, latestComplete, latestOverall, missingIds, previousCompleteOf, recordedTotal } from '../../core/ledger.js';
 import { checkSnapshot } from '../../core/anomalies.js';
@@ -130,6 +131,7 @@ export function buildHome(ctx) {
           changeNote: cmp?.total ? `较 ${formatDateZh(prevComp.date, { year: prevComp.date.slice(0, 4) !== comp.date.slice(0, 4) })}` : '这是第一条完整记录',
           note: cmp?.total?.basisChanged ? h('span', { class: 'tag' }, '账户口径不同，仅供参考') : null,
           bar: goalBlock(store, recordedTotal(comp)),
+          owner: settings.holderName ? { name: settings.holderName, since: [...snapshots].sort((a, b) => (a.date < b.date ? -1 : 1))[0].date.slice(0, 4) } : null,
           ariaLabel: '最近一次完整资产快照',
         });
       // 点封面空白处查看这条记录的明细（目标进度有自己的点按操作）
@@ -192,6 +194,8 @@ export function buildHome(ctx) {
     }
     const bn = backupNote(store, ctx);
     if (bn) frag.push(bn);
+    const rn = reportNudge(store, (o) => openReport(store, o));
+    if (rn) frag.push(rn);
 
     // 账户
     // 有负债账户时分成「资产」「负债」两组，负债组标题旁写合计欠款

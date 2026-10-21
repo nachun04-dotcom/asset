@@ -2,6 +2,8 @@
 // 版面原则：顶部是日期和「一键沿用上次」；每个账户一行——左边名字和上次的数，右边是大号金额栏；
 // 只有点金额栏才会弹出键盘（上下滑动时碰到行不会误触）；同类账户的添加、外币等放进每行的「⋯」。
 import { h, icon } from '../dom.js';
+import { freshMilestone } from '../../core/milestones.js';
+import { celebrate } from '../milestone.js';
 import { alertDialog, button, confirmDialog, openSheet, promptDialog, seg, stamp, switchControl, toast } from '../components.js';
 import { catIcon, compactYuan } from '../fmt.js';
 import { formatDecimal, formatMoney, formatSigned, parseAmount } from '../../core/money.js';
@@ -774,7 +776,9 @@ export function openEntry(ctx, { id = null, date = null } = {}) {
     saving = true;
     ui.save.disabled = true;
     let res;
+    let before = [];
     try {
+      before = store.state.snapshots;
       res = await store.saveSnapshot({ id: st.id, date: st.date, note: st.note.trim(), entries: ev.entries, source: 'manual' });
     } catch (e) {
       res = { ok: false, message: `保存失败：${e?.message ?? e}` };
@@ -793,6 +797,9 @@ export function openEntry(ctx, { id = null, date = null } = {}) {
     const id2 = res.snapshot.id;
     toast(res.snapshot.complete ? '已保存' : '已保存（不完整记录，不计入总资产）');
     if (hints.length) toast(`有 ${hints.length} 条需要留意的提示`, { actionText: '查看', onAction: () => nav.openDetail(id2), ms: 7000 });
+    // 刚好跨过一个整数关口：弹出里程碑纪念卡
+    const ms = freshMilestone(before, store.state.snapshots, res.snapshot);
+    if (ms) setTimeout(() => celebrate(ms, { holder: store.state.settings.holderName ?? '' }), 450);
   }
 
   ui.lbl = h('span', {});

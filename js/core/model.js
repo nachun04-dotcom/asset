@@ -30,6 +30,10 @@ export const DEFAULT_SETTINGS = Object.freeze({
   sound: true, // 操作音效
   haptics: true, // 触感震动
   liveGrowth: true, // 首页净资产按近一年增速每秒实时增长（估算）
+  coverSkin: 'noir', // 卡面：'noir' 黑金 | 'champagne' 香槟金 | 'jade' 墨绿
+  holderName: '', // 卡面上的持有人名字（可留空）
+  tilt: false, // 卡面光影：倾斜手机时反光跟着动（iPhone 需授权）
+  splash: true, // 开屏动画
   liveStyle: 'glow', // 实时增长的风格：'glow' 流光 | 'flip' 翻牌 | 'roll' 滚轮
 });
 

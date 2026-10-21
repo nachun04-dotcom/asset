@@ -4,6 +4,8 @@ import { button, emptyState, seg } from '../components.js';
 import { catCss } from '../fmt.js';
 import { buildDataTable, buildLineChart } from '../charts.js';
 import { allocation, monthlyBars } from '../insights.js';
+import { milestoneSection } from '../milestone.js';
+import { reportEntry } from '../report.js';
 import { categorySeries, knownIds, latestComplete, latestOverall, sortAsc, totalSeries } from '../../core/ledger.js';
 import { addDays, formatDateZh } from '../../core/date.js';
 import { formatMoney } from '../../core/money.js';
@@ -44,6 +46,10 @@ export function buildAnalysis(ctx) {
     }
 
     const shown = latestComplete(snapshots) ?? latestOverall(snapshots);
+
+    // 账单报告入口
+    const rpe = reportEntry(store);
+    if (rpe) frag.push(rpe);
 
     // 资产配置
     const alloc = allocation(shown, categories);
@@ -90,6 +96,10 @@ export function buildAnalysis(ctx) {
       );
     }
     frag.push(section1);
+
+    // 财富里程碑
+    const ms = milestoneSection(store);
+    if (ms) frag.push(h('section', { class: 'section' }, sectionHead('财富里程碑', ms.querySelector('button.ms-item') ? h('span', { class: 'muted small' }, '点一站可重看纪念卡') : null), ms));
 
     // 月度变化
     const bars = monthlyBars(snapshots, unit);

@@ -44,7 +44,7 @@ export function createStore(repo, env = {}) {
         await repo.setKV('categories', categories);
       }
       const settings = { ...DEFAULT_SETTINGS, ...(kv.settings ?? {}) };
-      const meta = { lastBackupAt: kv.lastBackupAt ?? null, lockCredential: kv.lockCredential ?? null, persisted: kv.persisted ?? null, preRestore: kv.preRestore ?? null };
+      const meta = { lastBackupAt: kv.lastBackupAt ?? null, lockCredential: kv.lockCredential ?? null, persisted: kv.persisted ?? null, preRestore: kv.preRestore ?? null, reportSeen: kv.reportSeen ?? null };
       // 旧数据：把大类名字固定下来（以前借用第一个账户的名字，改账户名会连带改大类名）
       const fixed = normalizeGroups(categories);
       if (JSON.stringify(fixed) !== JSON.stringify(categories)) {

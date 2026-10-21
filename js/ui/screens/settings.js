@@ -14,6 +14,7 @@ import { editGoal } from '../insights.js';
 import { categoryList } from '../categoryEditor.js';
 import { compactYuan } from '../fmt.js';
 import { LIVE_STYLES, liveStyleOf } from '../liveNumber.js';
+import { askTilt } from '../tilt.js';
 
 const when = (iso) => {
   const d = new Date(iso);
@@ -250,6 +251,41 @@ export function buildSettings(ctx, opts = {}) {
     },
   });
 
+  /* 个性化：卡面、持有人、光影、开屏、实时增长 */
+  section({
+    id: 'prestige',
+    title: '个性化',
+    sig: (st) => JSON.stringify([st.settings.coverSkin, st.settings.holderName, st.settings.tilt, st.settings.splash, st.settings.liveGrowth, st.settings.liveStyle]),
+    build: (self) => {
+      const set = (patch) => self.quiet(() => store.updateSettings(patch));
+      const s = store.state.settings;
+      const skin = ['noir', 'champagne', 'jade'].includes(s.coverSkin) ? s.coverSkin : 'noir';
+      const editHolder = async () => {
+        const v = await promptDialog({ title: '卡面持有人', message: '显示在首页卡片底部，例如你的名字或英文缩写。留空则不显示。', value: s.holderName ?? '', placeholder: '如：J. LIM', maxlength: 16 });
+        if (v == null) return;
+        await store.updateSettings({ holderName: v.trim().slice(0, 16) });
+      };
+      // iPhone 上打开光影要先在这次点按里请求陀螺仪权限
+      const tiltSwitch = switchControl(!!s.tilt, async (on) => {
+        if (on && !(await askTilt())) {
+          toast('没有获得动作与方向权限，可在系统设置里允许后再打开');
+          return store.updateSettings({ tilt: false });
+        }
+        await set({ tilt: on });
+      }, '卡面光影');
+      return h(
+        'div',
+        { class: 'list' },
+        row('卡面', null, seg([{ value: 'noir', label: '黑金' }, { value: 'champagne', label: '香槟' }, { value: 'jade', label: '墨绿' }], skin, (v) => set({ coverSkin: v }), { label: '卡面' })),
+        row('持有人', '显示在首页卡片底部', button(s.holderName || '设定', editHolder, { sm: true, kind: 'secondary' })),
+        row('卡面光影', '倾斜手机时，卡上的金色反光跟着移动', tiltSwitch),
+        row('开屏动画', '打开 App 时的徽记动画，点一下可跳过', switchControl(s.splash !== false, (on) => set({ splash: on }), '开屏动画')),
+        row('实时增长', '首页净资产按近一年增速每秒增长（估算）', switchControl(s.liveGrowth !== false, (on) => store.updateSettings({ liveGrowth: on }), '实时增长')),
+        s.liveGrowth !== false ? row('增长风格', null, seg(LIVE_STYLES.map(({ value, label }) => ({ value, label })), liveStyleOf(s), (v) => set({ liveStyle: v }), { label: '增长风格' })) : null,
+      );
+    },
+  });
+
   /* 显示 */
   const display = section({
     id: 'display',
@@ -280,8 +316,6 @@ export function buildSettings(ctx, opts = {}) {
         { class: 'list' },
         row('操作音效', '按键、保存时的轻声提示；手机静音时不响', switchControl(s.sound !== false, (on) => set({ sound: on }).then(() => on && fx.done()), '操作音效')),
         row('触感震动', isIOS() ? 'iPhone 需 iOS 18 及以上' : null, switchControl(s.haptics !== false, (on) => set({ haptics: on }).then(() => on && fx.select()), '触感震动')),
-        row('实时增长', '首页净资产按近一年增速每秒增长（估算）', switchControl(s.liveGrowth !== false, (on) => store.updateSettings({ liveGrowth: on }), '实时增长')),
-        s.liveGrowth !== false ? row('增长风格', null, seg(LIVE_STYLES.map(({ value, label }) => ({ value, label })), liveStyleOf(s), (v) => set({ liveStyle: v }), { label: '增长风格' })) : null,
         row('隐藏金额', '首页右上角的眼睛也能切换', switchControl(!!s.hideAmounts, (on) => set({ hideAmounts: on }), '隐藏金额')),
         row('财富目标', '首页显示达成进度', button(s.goalFen ? compactYuan(s.goalFen) : '设定', () => editGoal(store), { sm: true, kind: 'secondary' })),
         row('金额单位', null, seg([{ value: 'yuan', label: '元' }, { value: 'wan', label: '万元' }], s.unit, (v) => set({ unit: v }), { label: '金额单位' })),

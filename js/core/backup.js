@@ -149,6 +149,10 @@ export function validatePayload(p) {
   if (typeof s.haptics === 'boolean') settings.haptics = s.haptics;
   if (typeof s.liveGrowth === 'boolean') settings.liveGrowth = s.liveGrowth;
   if (['glow', 'flip', 'roll'].includes(s.liveStyle)) settings.liveStyle = s.liveStyle;
+  if (['noir', 'champagne', 'jade'].includes(s.coverSkin)) settings.coverSkin = s.coverSkin;
+  if (typeof s.holderName === 'string') settings.holderName = s.holderName.trim().slice(0, 16);
+  if (typeof s.tilt === 'boolean') settings.tilt = s.tilt;
+  if (typeof s.splash === 'boolean') settings.splash = s.splash;
   if (Number.isSafeInteger(s.goalFen) && s.goalFen > 0) settings.goalFen = s.goalFen;
   if (Number.isInteger(s.backupRemindDays) && s.backupRemindDays >= 1 && s.backupRemindDays <= 365) settings.backupRemindDays = s.backupRemindDays;
 

@@ -4,6 +4,7 @@ import { createStore } from './data/store.js';
 import { applyAppearance, mountApp } from './ui/app.js';
 import { button, toast } from './ui/components.js';
 import { h } from './ui/dom.js';
+import { playSplash } from './ui/splash.js';
 
 const root = document.getElementById('app');
 
@@ -100,7 +101,10 @@ async function boot() {
   }
   applyAppearance(store.state.settings);
   store.subscribe((st) => applyAppearance(st.settings));
-  mountApp(root, store, { repoKind: kind });
+  // 开屏仪式：徽记描完后渐隐，同时挂上首页（首页的欢迎动画正好接上）
+  const mount = () => mountApp(root, store, { repoKind: kind });
+  if (store.state.settings.splash !== false) playSplash(mount);
+  else mount();
   if (kind === 'memory') toast('临时模式：关闭后数据不会保留，请及时导出备份', { ms: 8000 });
   registerServiceWorker();
   watchPersistence(store);
