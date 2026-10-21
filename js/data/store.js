@@ -44,6 +44,12 @@ export function createStore(repo, env = {}) {
         await repo.setKV('categories', categories);
       }
       const settings = { ...DEFAULT_SETTINGS, ...(kv.settings ?? {}) };
+      // 卡面第 2 版：鎏金成为默认，老用户换一次；之后用户自己改什么就是什么
+      if (kv.settings && kv.settings.skinV !== 2) {
+        settings.coverSkin = 'gilt';
+        settings.skinV = 2;
+        await repo.setKV('settings', settings).catch(() => {});
+      }
       const meta = { lastBackupAt: kv.lastBackupAt ?? null, lockCredential: kv.lockCredential ?? null, persisted: kv.persisted ?? null, preRestore: kv.preRestore ?? null, reportSeen: kv.reportSeen ?? null };
       // 旧数据：把大类名字固定下来（以前借用第一个账户的名字，改账户名会连带改大类名）
       const fixed = normalizeGroups(categories);

@@ -1,5 +1,5 @@
 // 首页和详情页共用：封面（总资产）+ 账户明细行。
-import { h } from './dom.js';
+import { h, s as sv } from './dom.js';
 import { stamp } from './components.js';
 import { catIcon, catSlotClass, deltaSpan, heroAmount } from './fmt.js';
 import { formatMoney } from '../core/money.js';
@@ -32,6 +32,19 @@ export function shareBar(snap, categories) {
 }
 
 /**
+ * 扭索纹（guilloche）：几十个旋转的椭圆叠成的玫瑰线，像钞票和金属卡上的雕刻底纹。
+ * 一大一小两朵，静态矢量，颜色由卡面决定（currentColor）。
+ */
+export function guilloche() {
+  const rosette = (cx, cy, rx, ry, n) => Array.from({ length: n }, (_, i) => sv('ellipse', { cx, cy, rx, ry, transform: `rotate(${(180 / n) * i} ${cx} ${cy})` }));
+  return sv(
+    'svg',
+    { class: 'guilloche', viewBox: '0 0 400 250', preserveAspectRatio: 'xMidYMid slice', 'aria-hidden': 'true', focusable: 'false' },
+    sv('g', { fill: 'none', stroke: 'currentColor', 'stroke-width': 0.45 }, ...rosette(372, 236, 230, 92, 44), ...rosette(30, 18, 120, 46, 30)),
+  );
+}
+
+/**
  * 封面：深色的「存折」卡片，是整个 App 里唯一的视觉焦点。
  * @param change { fen, ratio } 与上一条的变化（可为 null）；changeNote 说明比较对象
  */
@@ -45,6 +58,7 @@ export function coverCard({ label, dateText, fen = null, complete = true, unit, 
       heroAmount(fen, unit),
       h('div', { class: 'cover-meta' }, h('span', { class: 'cover-when' }, dateText)),
     );
+    el.prepend(guilloche());
     if (bar) el.appendChild(bar);
     if (owner) el.appendChild(h('div', { class: 'cover-owner' }, h('span', {}, `SINCE ${owner.since}`), h('b', {}, owner.name)));
     el.appendChild(h('span', { class: 'cover-sheen', 'aria-hidden': 'true' }));
@@ -52,6 +66,7 @@ export function coverCard({ label, dateText, fen = null, complete = true, unit, 
     return el;
   }
   const el = h('section', { class: ['cover', !complete && 'partial'], 'aria-label': ariaLabel ?? label },
+    guilloche(),
     h('div', { class: 'cover-head' }, h('div', { class: 'cover-label' }, label), fen == null ? null : stamp(complete)),
     h('div', { class: 'cover-date' }, dateText),
     fen == null ? h('div', { class: 'hero dim', 'aria-label': '暂无总资产' }, '—') : heroAmount(fen, unit, { dim: !complete }),

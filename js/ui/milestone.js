@@ -7,6 +7,7 @@ import { milestoneName, nextMilestone, reachedMilestones } from '../core/milesto
 import { formatMoney } from '../core/money.js';
 import { formatDateZh } from '../core/date.js';
 import { saveFile } from '../platform.js';
+import { guilloche } from './snapshotView.js';
 
 const dateLong = (iso) => formatDateZh(iso, { year: true });
 
@@ -35,6 +36,7 @@ export function celebrate(m, { holder = '', replay = false } = {}) {
   const card = h(
     'div',
     { class: 'ms-card' },
+    guilloche(),
     h('div', { class: 'ms-kicker' }, h('i', { 'aria-hidden': 'true' }), t.kicker, h('i', { 'aria-hidden': 'true' })),
     h('div', { class: 'ms-title' }, t.title),
     h('div', { class: 'ms-big' }, t.big),

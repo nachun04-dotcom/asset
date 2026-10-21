@@ -11,6 +11,7 @@ import { openEntry } from './screens/entry.js';
 import { openDetail } from './screens/detail.js';
 import { buildLockScreen } from './lock.js';
 import { setTilt } from './tilt.js';
+import { skinOf } from '../core/model.js';
 
 // 底部标签栏：首页 · 分析 · ＋ · 历史 · 设置。「导入」不常用，从设置页进入（parent 决定高亮哪个标签）。
 const ROUTES = {
@@ -34,7 +35,7 @@ export function applyAppearance(settings) {
   else root.removeAttribute('data-theme');
   root.setAttribute('data-rise', settings.riseColor === 'green' ? 'green' : 'red');
   root.toggleAttribute('data-mask', !!settings.hideAmounts); // 隐私模式：样式里统一模糊 .mask 金额
-  root.setAttribute('data-skin', ['noir', 'champagne', 'jade'].includes(settings.coverSkin) ? settings.coverSkin : 'noir'); // 封面卡面
+  root.setAttribute('data-skin', skinOf(settings)); // 封面卡面
   setTilt(!!settings.tilt);
   // 手动选了浅色/深色时，让状态栏颜色跟着变；跟随系统时保持 index.html 里按系统外观设置的两条
   const fixed = document.querySelector('meta[name="theme-color"][data-fixed]');

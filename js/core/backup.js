@@ -149,7 +149,8 @@ export function validatePayload(p) {
   if (typeof s.haptics === 'boolean') settings.haptics = s.haptics;
   if (typeof s.liveGrowth === 'boolean') settings.liveGrowth = s.liveGrowth;
   if (['glow', 'flip', 'roll'].includes(s.liveStyle)) settings.liveStyle = s.liveStyle;
-  if (['noir', 'champagne', 'jade'].includes(s.coverSkin)) settings.coverSkin = s.coverSkin;
+  if (['gilt', 'noir', 'jade'].includes(s.coverSkin)) settings.coverSkin = s.coverSkin;
+  else if (s.coverSkin === 'champagne') settings.coverSkin = 'gilt';
   if (typeof s.holderName === 'string') settings.holderName = s.holderName.trim().slice(0, 16);
   if (typeof s.tilt === 'boolean') settings.tilt = s.tilt;
   if (typeof s.splash === 'boolean') settings.splash = s.splash;

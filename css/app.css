@@ -1127,7 +1127,6 @@ html.kb-open .toasts { bottom: calc(var(--kb, 0px) + 64px); }
 @keyframes trace-fade { 0% { opacity: 0; } 14% { opacity: 1; } 78% { opacity: 1; } 100% { opacity: 0; } }
 .trace.glow { animation-name: trace-fade-glow; }
 @keyframes trace-fade-glow { 0% { opacity: 0; } 14% { opacity: 0.32; } 78% { opacity: 0.32; } 100% { opacity: 0; } }
-html[data-skin="champagne"] .trace i { background: conic-gradient(from 0deg, transparent 0deg 262deg, rgba(255, 250, 235, 0.2) 292deg, rgba(255, 252, 240, 0.85) 330deg, #ffffff 348deg, rgba(255, 255, 250, 0.7) 355deg, transparent 360deg); }
 @media (prefers-reduced-motion: reduce) { .cover.welcome, .trace { animation: none; } .trace { display: none; } }
 
 /* ---------- 首页净资产实时增长 ---------- */
@@ -1217,23 +1216,6 @@ html[data-skin="champagne"] .trace i { background: conic-gradient(from 0deg, tra
 /* ================= 尊享：卡面、光影、里程碑、账单、开屏 ================= */
 
 /* ---------- 卡面：香槟金 / 墨绿（黑金是默认） ---------- */
-html[data-skin="champagne"] .cover {
-  --ivory: #2e2210; --ivory-2: rgba(46, 34, 16, 0.78); --ivory-3: rgba(46, 34, 16, 0.58);
-  --gold-soft: #7a5a22; --gold-line: rgba(96, 70, 24, 0.34); --up-c: #a3372b; --down-c: #2c6b4d;
-  background:
-    radial-gradient(90% 70% at 100% 0%, rgba(255, 250, 235, 0.65), transparent 60%),
-    linear-gradient(150deg, #f4e4bd 0%, #dcc08a 42%, #efdcac 62%, #c4a160 100%);
-  box-shadow: var(--shadow-lg), inset 0 1px 0 rgba(255, 255, 255, 0.6), inset 0 -1px 0 rgba(120, 88, 30, 0.25);
-}
-html[data-skin="champagne"] .cover::after { background: repeating-radial-gradient(circle at 112% -18%, rgba(110, 80, 26, 0.09) 0 1px, transparent 1px 7px); }
-html[data-skin="champagne"] .cover .hero { color: #3a2a10; text-shadow: 0 1px 0 rgba(255, 248, 228, 0.55); }
-html[data-skin="champagne"] .cover .hero .dec { color: rgba(46, 34, 16, 0.7); -webkit-text-fill-color: rgba(46, 34, 16, 0.7); }
-html[data-skin="champagne"] .cover .tag { background: rgba(46, 34, 16, 0.08); }
-html[data-skin="champagne"] .cover .stamp.warn { color: #8a5a10; border-color: rgba(138, 90, 16, 0.6); }
-html[data-skin="champagne"] .cover-delta, html[data-skin="champagne"] .cover-split i { border-color: rgba(96, 70, 24, 0.2); }
-html[data-skin="champagne"] .goal-track { background: rgba(46, 34, 16, 0.14); }
-html[data-skin="champagne"] .goal-track i { background: linear-gradient(90deg, #6e5020, #3d2c12); box-shadow: none; }
-html[data-skin="champagne"] .cover-live:active { background: rgba(46, 34, 16, 0.08); }
 html[data-skin="jade"] .cover {
   background:
     radial-gradient(90% 70% at 100% 0%, rgba(214, 182, 118, 0.2), transparent 62%),
@@ -1244,7 +1226,6 @@ html[data-skin="jade"] .cover {
 /* 卡面底部的持有人 */
 .cover-owner { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-top: 18px; padding-top: 12px; border-top: 1px solid rgba(214, 186, 128, 0.16); font-size: 10px; letter-spacing: 0.26em; color: var(--ivory-3); }
 .cover-owner b { font: 500 13px/1 var(--font-serif); letter-spacing: 0.3em; color: var(--gold-soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-html[data-skin="champagne"] .cover-owner { border-color: rgba(96, 70, 24, 0.22); }
 
 /* ---------- 卡面光影 ---------- */
 .cover-sheen, .cover-edge { display: none; }
@@ -1264,8 +1245,6 @@ html[data-tilt] .cover-edge {
   background: conic-gradient(from calc(var(--ta, 0) * 1deg - 50deg) at 50% 50%, transparent 0deg, rgba(255, 236, 190, 0.95) 50deg, transparent 100deg, transparent 200deg, rgba(255, 236, 190, 0.3) 230deg, transparent 260deg);
 }
 html[data-tilt] .cover::after { background-position: calc(var(--tx, 0) * 6px) calc(var(--ty, 0) * 6px); }
-html[data-tilt][data-skin="champagne"] .cover-sheen { mix-blend-mode: soft-light; }
-html[data-tilt][data-skin="champagne"] .cover-edge { background: conic-gradient(from calc(var(--ta, 0) * 1deg - 50deg) at 50% 50%, transparent 0deg, rgba(255, 255, 250, 0.95) 50deg, transparent 100deg, transparent 200deg, rgba(255, 255, 250, 0.4) 230deg, transparent 260deg); }
 
 /* ---------- 里程碑纪念卡 ---------- */
 .ms-layer { position: fixed; inset: 0; z-index: 90; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 26px; padding: 24px 16px calc(24px + env(safe-area-inset-bottom)); }
@@ -1330,7 +1309,6 @@ html[data-tilt][data-skin="champagne"] .cover-edge { background: conic-gradient(
 .rp-nav .icon-btn:disabled { opacity: 0.25; }
 .rp-cover { padding: 22px 22px 18px; }
 .rp-big { margin: 16px 0 14px; font: 400 40px/1 var(--font-display); color: #f6eedb; font-variant-numeric: lining-nums tabular-nums; word-break: break-all; }
-html[data-skin="champagne"] .rp-big { color: #3a2a10; }
 .rp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; border-radius: var(--r-md); overflow: hidden; background: var(--hair); border: 1px solid var(--hair); }
 .rp-cell { padding: 12px 14px; background: var(--surface); }
 .rp-cell .k { font-size: 11.5px; letter-spacing: 0.12em; color: var(--ink-3); }
@@ -1393,4 +1371,73 @@ html[data-skin="champagne"] .rp-big { color: #3a2a10; }
 .goal-line .gl-row { display: flex; justify-content: space-between; margin-top: 9px; font-size: 10.5px; letter-spacing: 0.16em; }
 .goal-line.done .gl-row .num { color: var(--gold-soft); }
 .cover.min .cover-owner { width: 100%; margin-top: 16px; padding-top: 0; border-top: 0; }
-html[data-skin="champagne"] .goal-line .goal-track { background: rgba(46, 34, 16, 0.14); }
+
+/* ================= 鎏金卡面 =================
+   全部是静态图层（不用滤镜、混合模式、渐变裁切文字），切页、滚动时不会闪。
+   由上到下：高光 → 亮拉丝 → 暗拉丝 → 金属反光带。 */
+:root {
+  --gilt-bg:
+    radial-gradient(120% 85% at 16% -12%, rgba(255, 253, 240, 0.5), rgba(255, 250, 230, 0) 46%),
+    radial-gradient(90% 70% at 110% 120%, rgba(90, 60, 12, 0.28), rgba(90, 60, 12, 0) 60%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='360' height='360'%3E%3Cfilter id='n' x='0' y='0'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.004 0.85' numOctaves='2' seed='19' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 0.97 0 0 0 0 0.86 0 0 0 1.5 -0.6'/%3E%3C/filter%3E%3Crect width='360' height='360' filter='url%28%23n%29'/%3E%3C/svg%3E") 0 0 / 360px 360px,
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='360' height='360'%3E%3Cfilter id='n' x='0' y='0'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.004 0.85' numOctaves='2' seed='7' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.36 0 0 0 0 0.24 0 0 0 0 0.06 0 0 0 1.6 -0.62'/%3E%3C/filter%3E%3Crect width='360' height='360' filter='url%28%23n%29'/%3E%3C/svg%3E") 0 0 / 360px 360px,
+    linear-gradient(112deg, #7a5618 0%, #b48434 11%, #e6c477 23%, #faebbf 31%, #f0d28a 37%, #c89945 49%, #a77a2c 57%, #d8b263 69%, #f2da97 77%, #c39240 87%, #8a6220 100%);
+  --gilt-ink: #3a2808;
+  --gilt-deboss: 0 -1px 0 rgba(66, 42, 6, 0.42), 0 1px 0 rgba(255, 249, 226, 0.72);
+}
+html[data-skin="gilt"] .cover {
+  --ivory: #3a2808; --ivory-2: rgba(58, 40, 8, 0.82); --ivory-3: rgba(66, 46, 12, 0.66);
+  --gold-soft: #5f410f; --gold-line: rgba(92, 64, 18, 0.45); --up-c: #93291d; --down-c: #245f43;
+  color: var(--gilt-ink);
+  background: var(--gilt-bg);
+  text-shadow: 0 1px 0 rgba(255, 246, 214, 0.55);
+  box-shadow:
+    0 26px 50px -26px rgba(92, 60, 8, 0.7), 0 3px 8px -2px rgba(92, 60, 8, 0.25),
+    inset 0 1px 0 rgba(255, 253, 238, 0.95), inset 0 -1.5px 0 rgba(92, 60, 10, 0.55),
+    inset 1px 0 0 rgba(255, 246, 214, 0.45), inset -1px 0 0 rgba(120, 84, 22, 0.45);
+}
+/* 压印的内框：一道压进金属的细线，下沿带一线反光；外侧再一道更淡的线，成双线框 */
+html[data-skin="gilt"] .cover::before {
+  border-color: rgba(92, 64, 18, 0.5);
+  box-shadow: 0 1px 0 rgba(255, 248, 222, 0.6), inset 0 1px 0 rgba(255, 248, 222, 0.4);
+  outline: 1px solid rgba(92, 64, 18, 0.18); outline-offset: 3px;
+}
+html[data-skin="gilt"] .cover::after { display: none; }
+html[data-skin="gilt"] .cover .guilloche { color: rgba(92, 62, 14, 0.22); }
+/* 大数字：压进金面里的字——上沿一道暗、下沿一道亮 */
+html[data-skin="gilt"] .cover .hero { color: var(--gilt-ink); text-shadow: var(--gilt-deboss); }
+html[data-skin="gilt"] .hero .cur, html[data-skin="gilt"] .hero .suf { color: #6a4a14; -webkit-text-fill-color: #6a4a14; }
+html[data-skin="gilt"] .hero .dec { color: #5a3e10; -webkit-text-fill-color: #5a3e10; }
+html[data-skin="gilt"] .cover .cover-label { text-shadow: var(--gilt-deboss); }
+html[data-skin="gilt"] .cover.min .cover-label::before, html[data-skin="gilt"] .cover.min .cover-label::after { opacity: 0.8; box-shadow: 0 1px 0 rgba(255, 249, 226, 0.6); }
+html[data-skin="gilt"] .cover .tag { background: rgba(58, 40, 8, 0.08); }
+html[data-skin="gilt"] .cover .stamp.warn { color: #7a4a08; border-color: rgba(122, 74, 8, 0.6); }
+html[data-skin="gilt"] .cover-delta, html[data-skin="gilt"] .cover-split i { border-color: rgba(92, 64, 18, 0.22); }
+html[data-skin="gilt"] .cover .goal-track, html[data-skin="gilt"] .goal-line .goal-track { background: rgba(70, 48, 12, 0.16); box-shadow: 0 1px 0 rgba(255, 249, 226, 0.5); }
+html[data-skin="gilt"] .cover .goal-track i { background: linear-gradient(90deg, #5a3d0e, #8a6420); box-shadow: none; }
+html[data-skin="gilt"] .cover-live:active { background: rgba(58, 40, 8, 0.08); }
+html[data-skin="gilt"] .cover-owner { border-color: rgba(92, 64, 18, 0.24); }
+html[data-skin="gilt"] .cover-owner b { text-shadow: var(--gilt-deboss); }
+html[data-skin="gilt"] .rl-strip > span { color: var(--gilt-ink); -webkit-text-fill-color: var(--gilt-ink); text-shadow: var(--gilt-deboss); }
+html[data-skin="gilt"] .rp-big { color: var(--gilt-ink); text-shadow: var(--gilt-deboss); }
+html[data-skin="gilt"] .cover.tappable:active::before { border-color: rgba(92, 64, 18, 0.75); }
+/* 欢迎光、倾斜光：金面上用白光，才像金属反光 */
+html[data-skin="gilt"] .trace i { background: conic-gradient(from 0deg, transparent 0deg 262deg, rgba(255, 255, 248, 0.25) 292deg, rgba(255, 255, 250, 0.9) 330deg, #ffffff 348deg, rgba(255, 255, 250, 0.75) 355deg, transparent 360deg); }
+html[data-tilt][data-skin="gilt"] .cover-sheen {
+  background:
+    radial-gradient(60% 50% at calc(50% + var(--tx, 0) * 70%) calc(35% + var(--ty, 0) * 60%), rgba(255, 255, 245, 0.42), rgba(255, 252, 235, 0.1) 45%, transparent 72%),
+    linear-gradient(115deg, transparent 28%, rgba(255, 255, 248, 0.12) 40%, rgba(255, 255, 252, 0.34) 50%, rgba(255, 255, 248, 0.12) 60%, transparent 72%);
+  background-size: 100% 100%, 300% 100%;
+  background-position: 0 0, calc(50% + var(--tx, 0) * 80%) 0;
+}
+html[data-tilt][data-skin="gilt"] .cover-edge { background: conic-gradient(from calc(var(--ta, 0) * 1deg - 50deg) at 50% 50%, transparent 0deg, rgba(255, 255, 252, 0.95) 50deg, transparent 100deg, transparent 200deg, rgba(255, 255, 250, 0.4) 230deg, transparent 260deg); }
+
+/* 扭索纹：所有卡面都有，颜色随卡面 */
+.guilloche { position: absolute; inset: 0; z-index: -1; width: 100%; height: 100%; pointer-events: none; color: rgba(214, 186, 128, 0.07); }
+html[data-tilt] .guilloche { transform: translate3d(calc(var(--tx, 0) * 5px), calc(var(--ty, 0) * 5px), 0); }
+
+/* 里程碑纪念卡：同一种鎏金 */
+.ms-card { isolation: isolate; background: var(--gilt-bg); color: var(--gilt-ink); text-shadow: 0 1px 0 rgba(255, 246, 214, 0.55); }
+.ms-card .ms-big { color: var(--gilt-ink); text-shadow: var(--gilt-deboss); }
+.ms-card::before { border-color: rgba(92, 64, 18, 0.5); box-shadow: 0 1px 0 rgba(255, 248, 222, 0.6), inset 0 1px 0 rgba(255, 248, 222, 0.4); }
+.ms-card .guilloche { color: rgba(92, 62, 14, 0.2); }

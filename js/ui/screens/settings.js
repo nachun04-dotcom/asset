@@ -6,7 +6,7 @@ import { openTemplates } from './importHub.js';
 import { MIN_PASSWORD_LENGTH, createBackup, openBackup } from '../../core/backup.js';
 import { exportCSV } from '../../core/csvExport.js';
 import { dayDiff, todayISO } from '../../core/date.js';
-import { sortedCategories } from '../../core/model.js';
+import { skinOf, sortedCategories } from '../../core/model.js';
 import { MIME, fileStamp, isIOS, isStandalone, pickFile, saveFile } from '../../platform.js';
 import { lockSupported, registerLock, verifyLock } from '../lock.js';
 import { APP_NAME, APP_VERSION } from '../../version.js';
@@ -259,7 +259,7 @@ export function buildSettings(ctx, opts = {}) {
     build: (self) => {
       const set = (patch) => self.quiet(() => store.updateSettings(patch));
       const s = store.state.settings;
-      const skin = ['noir', 'champagne', 'jade'].includes(s.coverSkin) ? s.coverSkin : 'noir';
+      const skin = skinOf(s);
       const editHolder = async () => {
         const v = await promptDialog({ title: '卡面持有人', message: '显示在首页卡片底部，例如你的名字或英文缩写。留空则不显示。', value: s.holderName ?? '', placeholder: '如：J. LIM', maxlength: 16 });
         if (v == null) return;
@@ -283,7 +283,7 @@ export function buildSettings(ctx, opts = {}) {
       return h(
         'div',
         { class: 'list' },
-        row('卡面', null, seg([{ value: 'noir', label: '黑金' }, { value: 'champagne', label: '香槟' }, { value: 'jade', label: '墨绿' }], skin, (v) => set({ coverSkin: v }), { label: '卡面' })),
+        row('卡面', null, seg([{ value: 'gilt', label: '鎏金' }, { value: 'noir', label: '黑金' }, { value: 'jade', label: '墨绿' }], skin, (v) => set({ coverSkin: v }), { label: '卡面' })),
         row('持有人', '显示在首页卡片底部', button(s.holderName || '设定', editHolder, { sm: true, kind: 'secondary' })),
         row('卡面光影', '倾斜手机时，卡面高光和金边跟着光线移动', tiltSwitch),
         row('开屏动画', '打开 App 时的徽记动画，点一下可跳过', switchControl(s.splash !== false, (on) => set({ splash: on }), '开屏动画')),
