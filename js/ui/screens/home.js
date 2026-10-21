@@ -5,7 +5,7 @@ import { accountRows, coverCard } from '../snapshotView.js';
 import { animateHero } from '../fmt.js';
 import { LIVE_STYLES, liveHero, liveStyleOf } from '../liveNumber.js';
 import { openReport, reportNudge } from '../report.js';
-import { goalBlock, kpiRow } from '../insights.js';
+import { goalLine, kpiRow } from '../insights.js';
 import { compareSnapshots, findByDate, growthRate, latestComplete, latestOverall, missingIds, previousCompleteOf, recordedTotal } from '../../core/ledger.js';
 import { checkSnapshot } from '../../core/anomalies.js';
 import { isDebt, splitTotals } from '../../core/model.js';
@@ -120,17 +120,14 @@ export function buildHome(ctx) {
     const dateText = `${formatDateZh(shown.date, { year: shown.date.slice(0, 4) !== thisYear, weekday: true })} · ${relativeDaysZh(shown.date)}`;
     if (comp) {
       const sp = splitTotals(comp, categories);
+      // 封面只放最关键的：净资产这一个数。涨跌在下面三格里，资产 / 负债在账户列表里，不再重复
       const cover = coverCard({
+          minimal: true,
           label: sp.hasDebt ? '净资产' : '总资产',
-          split: sp.hasDebt ? sp : null,
-          dateText,
+          dateText: `记于 ${formatDateZh(comp.date, { year: comp.date.slice(0, 4) !== thisYear })}`,
           fen: recordedTotal(comp),
-          complete: true,
           unit,
-          change: cmp?.total ?? null,
-          changeNote: cmp?.total ? `较 ${formatDateZh(prevComp.date, { year: prevComp.date.slice(0, 4) !== comp.date.slice(0, 4) })}` : '这是第一条完整记录',
-          note: cmp?.total?.basisChanged ? h('span', { class: 'tag' }, '账户口径不同，仅供参考') : null,
-          bar: goalBlock(store, recordedTotal(comp)),
+          bar: goalLine(store, recordedTotal(comp)),
           owner: settings.holderName ? { name: settings.holderName, since: [...snapshots].sort((a, b) => (a.date < b.date ? -1 : 1))[0].date.slice(0, 4) } : null,
           ariaLabel: '最近一次完整资产快照',
         });
@@ -152,17 +149,15 @@ export function buildHome(ctx) {
       if (rate) {
         liveHero(hero, { fen0, t0: recordTime(comp), perSec: rate.perSec, unit, style: liveStyleOf(settings), welcome });
         const per = rate.perSec >= 1 ? ['每秒', rate.perSec] : ['每天', rate.perSec * 86400];
-        hero.after(
+        cover.querySelector('.cover-meta').prepend(
           h(
             'button',
-            { type: 'button', class: 'cover-live', 'aria-label': '实时估算：换风格或关闭', onClick: () => liveSheet(store, rate) },
+            { type: 'button', class: 'cover-live', 'aria-label': `实时估算，${per[0]}约 ${formatSigned(Math.max(1, Math.round(per[1])), 'yuan')}。点按可换风格或关闭`, onClick: () => liveSheet(store, rate) },
             h('i', { class: 'pulse', 'aria-hidden': 'true' }),
-            '实时估算',
-            h('span', { class: 'sep', 'aria-hidden': 'true' }),
-            `${per[0]} `,
-            h('b', { class: 'mask' }, `${formatSigned(Math.max(1, Math.round(per[1])), 'yuan')}`),
-            icon('chevronR', { size: 13, stroke: 2 }),
+            h('b', { class: 'mask' }, formatSigned(Math.max(1, Math.round(per[1])), 'yuan')),
+            ` / ${per[0] === '每秒' ? '秒' : '天'}`,
           ),
+          h('i', { class: 'meta-dot', 'aria-hidden': 'true' }),
         );
       } else if (welcome) animateHero(hero, fen0, unit);
     } else {

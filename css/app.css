@@ -1377,3 +1377,24 @@ html[data-skin="champagne"] .rp-big { color: #3a2a10; }
 .sp-sub { font: 500 9.5px/1 var(--font-latin); letter-spacing: 0.5em; padding-left: 0.5em; color: rgba(216, 187, 126, 0.7); white-space: pre; opacity: 0; animation: sp-rise 0.7s ease-out 0.75s forwards; }
 @keyframes sp-rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 @keyframes sp-line { to { width: 120px; } }
+
+/* ---------- 首页封面（极简）：居中，只有标题、大数字、一行小字 ---------- */
+.cover.min { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 38px 26px 30px; }
+.cover.min .cover-label { justify-content: center; font-size: 12px; letter-spacing: 0.5em; padding-left: 0.5em; }
+.cover.min .cover-label { gap: 12px; }
+.cover.min .cover-label::before, .cover.min .cover-label::after { content: ""; width: 18px; height: 1px; border: 0; transform: none; background: var(--gold-soft); opacity: 0.55; flex: none; }
+.cover.min .cover-label::after { margin-left: -0.5em; }
+.cover.min .hero { margin: 26px 0 20px; font-size: clamp(44px, 14.5vw, 62px); }
+.cover.min .hero.board { justify-content: center; }
+.cover.min .hero.live { margin-bottom: 20px; }
+.cover-meta { display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 26px; font-size: 11.5px; letter-spacing: 0.14em; color: var(--ivory-3); }
+.cover-meta .meta-dot { width: 2px; height: 2px; border-radius: 50%; background: currentColor; opacity: 0.7; }
+.cover.min .cover-live { margin: 0; padding: 4px 6px; gap: 7px; font-size: 11.5px; letter-spacing: 0.1em; }
+.cover.min .cover-live b { font-weight: 400; letter-spacing: 0.04em; }
+.goal-line { display: block; width: 100%; margin-top: 22px; padding: 0; border: 0; background: none; font: inherit; color: var(--ivory-3); cursor: pointer; }
+.goal-line .goal-track { display: block; height: 2px; margin: 0; background: rgba(244, 236, 219, 0.1); }
+.goal-line .goal-track i { box-shadow: none; }
+.goal-line .gl-row { display: flex; justify-content: space-between; margin-top: 9px; font-size: 10.5px; letter-spacing: 0.16em; }
+.goal-line.done .gl-row .num { color: var(--gold-soft); }
+.cover.min .cover-owner { width: 100%; margin-top: 16px; padding-top: 0; border-top: 0; }
+html[data-skin="champagne"] .goal-line .goal-track { background: rgba(46, 34, 16, 0.14); }

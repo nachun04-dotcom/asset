@@ -154,6 +154,19 @@ export function goalBlock(store, totalFen) {
   );
 }
 
+/** 首页封面底部的目标：一根金色细线 + 两端各一个小字，没设目标就什么都不放。点按可修改。 */
+export function goalLine(store, totalFen) {
+  const { goalFen, unit } = store.state.settings;
+  if (!goalFen) return null;
+  const p = totalFen / goalFen;
+  return h(
+    'button',
+    { type: 'button', class: ['goal-line', p >= 1 && 'done'], onClick: () => editGoal(store), 'aria-label': `财富目标 ${formatMoney(goalFen, unit)}，已完成 ${(p * 100).toFixed(1)}%，点按可修改` },
+    h('span', { class: 'goal-track' }, h('i', { style: `width:${Math.max(1.5, Math.min(100, p * 100)).toFixed(2)}%` })),
+    h('span', { class: 'gl-row' }, h('span', {}, '目标 ', h('span', { class: 'mask' }, compactYuan(goalFen))), h('span', { class: 'num' }, p >= 1 ? '已达成' : `${Math.min(99.9, p * 100).toFixed(1)}%`)),
+  );
+}
+
 /** 月度变化：最近 12 个月的月末变化柱状图；点按柱子查看该月详情。 */
 export function monthlyBars(snaps, unit) {
   const all = monthlyChanges(snaps);

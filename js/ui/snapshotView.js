@@ -35,7 +35,22 @@ export function shareBar(snap, categories) {
  * 封面：深色的「存折」卡片，是整个 App 里唯一的视觉焦点。
  * @param change { fen, ratio } 与上一条的变化（可为 null）；changeNote 说明比较对象
  */
-export function coverCard({ label, dateText, fen = null, complete = true, unit, change = null, changeNote = null, note = null, bar = null, split = null, owner = null, ariaLabel }) {
+export function coverCard({ label, dateText, fen = null, complete = true, unit, change = null, changeNote = null, note = null, bar = null, split = null, owner = null, minimal = false, ariaLabel }) {
+  // 首页用的极简版：居中只放标题、大数字和一行小字（日期 / 实时增长），其余都不放
+  if (minimal) {
+    const el = h(
+      'section',
+      { class: 'cover min', 'aria-label': ariaLabel ?? label },
+      h('div', { class: 'cover-label' }, label),
+      heroAmount(fen, unit),
+      h('div', { class: 'cover-meta' }, h('span', { class: 'cover-when' }, dateText)),
+    );
+    if (bar) el.appendChild(bar);
+    if (owner) el.appendChild(h('div', { class: 'cover-owner' }, h('span', {}, `SINCE ${owner.since}`), h('b', {}, owner.name)));
+    el.appendChild(h('span', { class: 'cover-sheen', 'aria-hidden': 'true' }));
+    el.appendChild(h('span', { class: 'cover-edge', 'aria-hidden': 'true' }));
+    return el;
+  }
   const el = h('section', { class: ['cover', !complete && 'partial'], 'aria-label': ariaLabel ?? label },
     h('div', { class: 'cover-head' }, h('div', { class: 'cover-label' }, label), fen == null ? null : stamp(complete)),
     h('div', { class: 'cover-date' }, dateText),
