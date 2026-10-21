@@ -1024,19 +1024,55 @@ html.kb-open .sheet-foot { padding-top: 10px; }
 .gc-sum { margin-left: auto; padding-right: 30px; font-size: 12px; letter-spacing: 0.02em; color: var(--ink-2); font-variant-numeric: tabular-nums; }
 .acct-grp .acct.line { padding: 8px 0; }
 
-/* ---------- 键盘弹出时：标题栏和底栏都收成细细一条 ---------- */
-.kb-bar { display: none; }
-html.kb-open .entry-sheet .entry-foot > :not(.kb-bar) { display: none; }
-html.kb-open .entry-sheet .kb-bar { display: flex; align-items: center; gap: 10px; min-height: 40px; }
+/* ---------- 键盘（系统键盘或自带金额键盘）弹出时：标题栏和底栏都收成细细一条 ---------- */
+.kb-bar, .amount-pad { display: none; }
+:is(html.kb-open .entry-sheet, .entry-sheet.kp-open) .entry-foot > :not(.kb-bar) { display: none; }
+:is(html.kb-open .entry-sheet, .entry-sheet.kp-open) .kb-bar { display: flex; align-items: center; gap: 10px; min-height: 40px; }
 html.kb-open .entry-sheet .sheet-foot { padding: 6px 12px 6px 18px; }
 .kb-bar .kp { font-size: 12px; color: var(--ink-3); letter-spacing: 0.04em; white-space: nowrap; }
 .kb-bar .ks { flex: 1; min-width: 0; text-align: right; font: 400 17px/1.2 var(--font-display); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.kb-save { flex: none; height: 36px; padding: 0 18px; border: 0; border-radius: 99px; background: var(--brand); color: var(--brand-ink); font-size: 14.5px; font-weight: 600; letter-spacing: 0.12em; }
+.kb-save { flex: none; height: 34px; padding: 0 18px; border: 0; border-radius: 99px; background: var(--brand); color: var(--brand-ink); font-size: 14px; font-weight: 600; letter-spacing: 0.12em; }
 .kb-save.off { opacity: 0.42; }
 html.kb-open .entry-sheet { height: calc(var(--vvh, 100dvh) - 4px); border-radius: 18px 18px 0 0; }
-html.kb-open .entry-sheet .sheet-head { padding: 4px 6px 0 18px; }
-html.kb-open .entry-sheet .sheet-head::before { display: none; }
-html.kb-open .entry-sheet .sheet-title { padding-top: 0; font-size: 16px; }
-html.kb-open .entry-sheet .sheet-head .icon-btn, html.kb-open .entry-sheet .head-btn { transform: scale(0.88); }
-html.kb-open .entry-sheet .sheet-body { padding-top: 6px; }
+:is(html.kb-open .entry-sheet, .entry-sheet.kp-open) .sheet-head { padding: 4px 6px 0 18px; }
+:is(html.kb-open .entry-sheet, .entry-sheet.kp-open) .sheet-head::before { display: none; }
+:is(html.kb-open .entry-sheet, .entry-sheet.kp-open) .sheet-title { padding-top: 0; font-size: 16px; }
+:is(html.kb-open .entry-sheet, .entry-sheet.kp-open) :is(.sheet-head .icon-btn, .head-btn) { transform: scale(0.88); }
+:is(html.kb-open .entry-sheet, .entry-sheet.kp-open) .sheet-body { padding-top: 6px; }
 html.kb-open .toasts { bottom: calc(var(--kb, 0px) + 64px); }
+
+/* ---------- 自带金额键盘：带加减，右下角「完成」 ---------- */
+.entry-sheet.kp-open .sheet-foot { padding: 4px 8px calc(8px + env(safe-area-inset-bottom, 0px)); gap: 4px; background: color-mix(in srgb, var(--sunk) 70%, var(--surface)); }
+.entry-sheet.kp-open .kb-bar { padding: 0 4px 0 10px; }
+.entry-sheet.kp-open .amount-pad { display: block; animation: pad-in 0.32s cubic-bezier(0.22, 1, 0.36, 1) backwards; }
+@keyframes pad-in { from { transform: translateY(24px); opacity: 0; } }
+.pad-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.pk {
+  position: relative; height: 50px; border: 0; border-radius: 13px; padding: 0;
+  display: grid; place-items: center; background: var(--surface); color: var(--ink);
+  font: 400 25px/1 var(--font-display); letter-spacing: 0;
+  box-shadow: 0 1px 0 color-mix(in srgb, var(--ink) 12%, transparent), inset 0 0.5px 0 rgba(255, 255, 255, 0.6);
+  -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+  transition: transform 0.08s ease, background-color 0.12s ease;
+}
+.pk.down { transform: scale(0.95); background: var(--sunk); }
+.pk.fn { background: color-mix(in srgb, var(--sunk) 55%, var(--surface)); color: var(--ink-2); }
+.pk.op { font: 300 28px/1 var(--font-ui); color: var(--gold-text); background: color-mix(in srgb, var(--gold) 13%, var(--surface)); }
+.pk.op.down { background: color-mix(in srgb, var(--gold) 24%, var(--surface)); }
+.pk.pt { font-size: 30px; padding-bottom: 8px; }
+.pk.sm { font: 500 13px/1 var(--font-ui); letter-spacing: 0.06em; }
+.pk-next { display: inline-flex; align-items: center; gap: 2px; }
+.pk:disabled { opacity: 0.4; }
+.pk.done { background: var(--brand); color: var(--brand-ink); font: 600 16px/1 var(--font-ui); letter-spacing: 0.2em; padding-left: 0.2em; box-shadow: 0 6px 16px -8px rgba(20, 14, 4, 0.6), inset 0 0 0 1px var(--gold-line); }
+.pk.done.down { filter: brightness(1.15); }
+@media (max-height: 640px) { .pk { height: 44px; } }
+
+/* 正在用金额键盘填的那一栏：金色底线 + 闪烁的光标 */
+.amt { cursor: pointer; }
+.amt input.money[readonly] { pointer-events: none; caret-color: transparent; text-overflow: ellipsis; }
+.amt.active { border-bottom-color: var(--gold); box-shadow: 0 1px 0 0 var(--gold), 0 10px 18px -16px var(--gold); }
+.amt.active::after { content: ""; flex: none; align-self: center; width: 1.5px; height: 20px; margin-left: 1px; border-radius: 1px; background: var(--gold); animation: caret 1.05s steps(1) infinite; }
+.amt.active .pre { color: var(--gold-text); }
+@keyframes caret { 50% { opacity: 0; } }
+.acct .sub.calc { color: var(--gold-text); font-weight: 500; }
+@media (prefers-reduced-motion: reduce) { .amt.active::after { animation: none; } .entry-sheet.kp-open .amount-pad { animation: none; } }

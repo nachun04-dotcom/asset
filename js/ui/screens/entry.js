@@ -10,6 +10,7 @@ import { cleanName, enabledCategories, groupKey, isDebt, nameKey, sortedCategori
 import { findByDate, hasValue, isComplete, recordedTotal, sortDesc } from '../../core/ledger.js';
 import { displayCategories } from '../snapshotView.js';
 import { confirmDeleteCategory, dragHandle, groupedSortable, openCategoryEditor } from '../categoryEditor.js';
+import { amountPad, evalExpr, prettyExpr } from '../amountPad.js';
 
 const newRow = () => ({ text: '', fxOn: false, cur: '', orig: '' });
 /** 输入框里显示的金额：带千分位（218,440.72），parseAmount 能原样读回。 */
@@ -327,6 +328,7 @@ export function openEntry(ctx, { id = null, date = null } = {}) {
   }
 
   function rebuild() {
+    if (padCid) closePad();
     const scroller = sheet.body;
     const top = scroller.scrollTop;
     scroller.replaceChildren(buildForm()); // 已填的内容都在 st.rows 里，重画不会丢
@@ -350,6 +352,7 @@ export function openEntry(ctx, { id = null, date = null } = {}) {
       done.push({ cid: c.id, text: r.text });
     }
     if (!done.length) return;
+    if (padCid) pad.start(st.rows.get(padCid)?.text ?? '');
     st.dirty = true;
     st.reusedCount = done.length;
     recalc();
@@ -444,31 +447,13 @@ export function openEntry(ctx, { id = null, date = null } = {}) {
       st.dirty = true;
       recalc();
     };
-    const input = h('input', { type: 'text', inputmode: 'decimal', autocomplete: 'off', autocapitalize: 'off', spellcheck: 'false', class: 'money', 'aria-label': `${cat.name}金额`, 'aria-describedby': `acct-sub-${idx}`, placeholder: '输入金额', value: r.text, enterkeyhint: idx === n - 1 ? 'done' : 'next' });
-    input.addEventListener('input', () => {
-      r.text = input.value;
-      touch();
-    });
-    // 填完离开时整理成带千分位的写法；写错的保持原样，方便改
-    input.addEventListener('blur', () => {
-      const p = parseAmount(input.value, st.unit);
-      if (!p.ok || p.empty) return;
-      const pretty = showAmount(p.fen, st.unit);
-      if (pretty !== input.value) {
-        input.value = pretty;
-        r.text = pretty;
-      }
-    });
-    input.addEventListener('keydown', (e) => {
-      if (e.key !== 'Enter') return;
-      e.preventDefault();
-      const next = [...refs.values()][idx + 1]?.input;
-      if (next) next.focus();
-      else input.blur();
-    });
-    // 金额栏是一个 label：点框里任何位置都会聚焦输入框；行的其他地方不响应，滑动时不会误弹键盘
+    // 金额栏用自带的金额键盘（readonly + inputmode=none：不弹系统键盘，版面不被顶起）
+    const input = h('input', { type: 'text', inputmode: 'none', readonly: true, tabindex: '-1', autocomplete: 'off', class: 'money', 'aria-label': `${cat.name}金额`, 'aria-describedby': `acct-sub-${idx}`, placeholder: '输入金额', value: r.text });
+    // 点金额栏任何位置都打开金额键盘；行的其他地方不响应，滑动时不会误弹
     const debt = isDebt(cat);
-    const amt = h('label', { class: ['amt', debt && 'debt'] }, h('span', { class: 'pre', 'aria-hidden': 'true' }, debt ? '欠 ¥' : '¥'), input, st.unit === 'wan' ? h('span', { class: 'sfx' }, '万') : null);
+    const amt = h('div', { class: ['amt', debt && 'debt', padCid === cat.id && 'active'], role: 'button', tabindex: '0', 'aria-label': `填写${cat.name}金额` }, h('span', { class: 'pre', 'aria-hidden': 'true' }, debt ? '欠 ¥' : '¥'), input, st.unit === 'wan' ? h('span', { class: 'sfx' }, '万') : null);
+    amt.addEventListener('click', () => openPad(cat.id));
+    amt.addEventListener('keydown', (e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), openPad(cat.id)));
 
     const sub = h('div', { class: 'sub', id: `acct-sub-${idx}`, hidden: true });
     const reuseText = h('span', {});
@@ -478,6 +463,7 @@ export function openEntry(ctx, { id = null, date = null } = {}) {
       if (!last) return;
       r.text = showAmount(signed(last.fen, cat.id), st.unit);
       input.value = r.text;
+      if (padCid === cat.id) pad.start(r.text);
       touch();
     });
     const more = keepFocus(h('button', { type: 'button', class: 'more', 'aria-label': `${cat.name}：更多`, onClick: () => openOptions(cat) }, icon('more', { size: 20 })));
@@ -652,6 +638,91 @@ export function openEntry(ctx, { id = null, date = null } = {}) {
     return h('div', { class: 'entry' }, h('div', { class: 'entry-bar' }, chip, unitSeg), ui.future, ui.dup, ui.reuse, h('div', { class: 'acct-list' }, ...cards), h('div', { class: 'entry-extra' }, addNote, noteWrap), del);
   }
 
+  /* ------------------------------ 金额键盘 ------------------------------ */
+
+  let padCid = null;
+  const pad = amountPad({
+    decimals: () => (st.unit === 'wan' ? 6 : 2),
+    onChange: padChange,
+    onNext: () => {
+      const n = nextCid(padCid);
+      if (n) openPad(n);
+      else closePad();
+    },
+    onDone: () => closePad(),
+  });
+  const nextCid = (cid) => {
+    const ids = [...refs.keys()];
+    return ids[ids.indexOf(cid) + 1] ?? null;
+  };
+
+  function padChange(expr) {
+    const r = st.rows.get(padCid);
+    const ref = refs.get(padCid);
+    if (!r) return;
+    const ev = evalExpr(expr, st.unit);
+    r.text = ev.empty ? '' : ev.error || !ev.hasOp ? expr.replace(/−/g, '-') : showAmount(ev.fen, st.unit);
+    if (ref) ref.input.value = prettyExpr(expr);
+    st.dirty = true;
+    recalc();
+    // 有加减时，名字下面那行小字直接显示结果
+    if (ref && ev.hasOp && !ev.error) {
+      ref.sub.className = 'sub calc';
+      ref.sub.hidden = false;
+      ref.sub.textContent = `= ${formatMoney(ev.fen, st.unit)}`;
+      ref.reuse.hidden = true;
+    }
+  }
+
+  /** 收起当前这一栏：算式换成结果，金额整理成带千分位的写法。 */
+  function commitPad() {
+    if (!padCid) return;
+    const r = st.rows.get(padCid);
+    const ref = refs.get(padCid);
+    const p = r ? parseAmount(r.text, st.unit) : null;
+    if (r && p?.ok && !p.empty) r.text = showAmount(p.fen, st.unit);
+    if (ref) {
+      ref.input.value = r?.text ?? '';
+      ref.amt.classList.remove('active');
+    }
+    padCid = null;
+    recalc();
+  }
+
+  function openPad(cid) {
+    if (padCid === cid) return;
+    commitPad();
+    if (document.activeElement?.matches?.('input, textarea')) document.activeElement.blur(); // 收起系统键盘（备注、外币栏）
+    padCid = cid;
+    const ref = refs.get(cid);
+    ref?.amt.classList.add('active');
+    pad.start(st.rows.get(cid)?.text ?? '');
+    pad.setNext(!!nextCid(cid));
+    sheet.el.classList.add('kp-open');
+    // 键盘升起后可视区变小：把正在填的这一行刚好露出来
+    setTimeout(() => {
+      const row = ref?.amt.closest('.acct');
+      if (!row) return;
+      const r = row.getBoundingClientRect();
+      const b = sheet.body.getBoundingClientRect();
+      const m = 14;
+      let dy = 0;
+      if (r.bottom > b.bottom - m) dy = r.bottom - (b.bottom - m);
+      else if (r.top < b.top + m) dy = r.top - (b.top + m);
+      if (dy) sheet.body.scrollBy({ top: dy, behavior: 'smooth' });
+    }, 60);
+  }
+
+  function closePad() {
+    commitPad();
+    sheet.el.classList.remove('kp-open');
+  }
+
+  const onKey = (e) => {
+    if (!padCid || e.target.closest?.('input:not([readonly]), textarea, select, .dialog')) return;
+    pad.key(e);
+  };
+
   /* ------------------------------ 保存 ------------------------------ */
 
   let saving = false;
@@ -706,9 +777,10 @@ export function openEntry(ctx, { id = null, date = null } = {}) {
   const sheet = openSheet({
     title: st.id ? '修改记录' : '记一笔',
     body: buildForm(),
-    footer: foot,
+    footer: h('div', { class: 'entry-footwrap' }, foot, pad.el),
     // 没保存就关掉：内容存成草稿，下次打开还在；只有存不了草稿（浏览器禁止本地存储）时才提醒
     beforeClose: async () => {
+      if (padCid) closePad();
       if (!st.dirty) return true;
       flushDraft();
       if (draftOk) {
@@ -718,11 +790,20 @@ export function openEntry(ctx, { id = null, date = null } = {}) {
       return confirmDialog({ title: '放弃修改？', message: '你填写的内容还没有保存。', confirmText: '放弃', cancelText: '继续编辑', danger: true });
     },
     onClose: () => {
+      document.removeEventListener('keydown', onKey);
       document.removeEventListener('visibilitychange', onHide);
       window.removeEventListener('pagehide', flushDraft);
     },
   });
   sheet.el.classList.add('entry-sheet');
+  document.addEventListener('keydown', onKey);
+  // 点金额栏以外的地方（不是滑动）收起金额键盘；去填备注、外币栏时也收起
+  sheet.body.addEventListener('click', (e) => {
+    if (padCid && !e.target.closest('.amt, .reuse')) closePad();
+  });
+  sheet.body.addEventListener('focusin', (e) => {
+    if (padCid && e.target.matches('input:not([readonly]), textarea')) closePad();
+  });
   ui.manageBtn = h('button', { type: 'button', class: 'head-btn', onClick: () => setManage(!st.manage) }, '管理');
   const head = sheet.el.querySelector('.sheet-head');
   if (!head.querySelector('.head-btn')) head.insertBefore(ui.manageBtn, head.lastElementChild); // 已开着的记一笔不会再叠一个按钮
