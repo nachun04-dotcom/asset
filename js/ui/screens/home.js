@@ -1,8 +1,9 @@
 // 首页：封面（最近一次完整快照的总资产）→ 阶段变化 → 更新余额 → 账户明细。图表都在「分析」页。
 import { h, icon } from '../dom.js';
-import { button, emptyState, noteBox, seg } from '../components.js';
+import { button, emptyState, noteBox, openSheet, seg, toast } from '../components.js';
 import { accountRows, coverCard } from '../snapshotView.js';
-import { animateHero, liveHero } from '../fmt.js';
+import { animateHero } from '../fmt.js';
+import { LIVE_STYLES, liveHero, liveStyleOf } from '../liveNumber.js';
 import { goalBlock, kpiRow } from '../insights.js';
 import { compareSnapshots, findByDate, growthRate, latestComplete, latestOverall, missingIds, previousCompleteOf, recordedTotal } from '../../core/ledger.js';
 import { checkSnapshot } from '../../core/anomalies.js';
@@ -22,6 +23,35 @@ export function backupNote(store, ctx) {
   }
   if (!text) return null;
   return h('button', { type: 'button', class: 'nudge', onClick: () => ctx.nav.goto('settings', { focus: 'backup' }) }, icon('shield', { size: 18 }), h('span', { class: 'grow' }, text), h('span', { class: 'go' }, '去备份'), icon('chevronR', { size: 16 }));
+}
+
+/** 实时估算的小面板：选风格，或者关掉。 */
+function liveSheet(store, rate) {
+  const cur = liveStyleOf(store.state.settings);
+  const pick = (v) => {
+    sheet.close();
+    if (v !== cur) store.updateSettings({ liveStyle: v });
+  };
+  const opts = LIVE_STYLES.map((o) =>
+    h(
+      'button',
+      { type: 'button', class: ['live-opt', o.value === cur && 'on'], 'aria-pressed': String(o.value === cur), onClick: () => pick(o.value) },
+      h('span', { class: `live-demo ${o.value}`, 'aria-hidden': 'true' }, ...(o.value === 'glow' ? ['8', '8', h('small', {}, '.88')] : ['8', '8', '8'].map((d) => h('i', {}, d)))),
+      h('span', { class: 'grow' }, h('b', {}, o.label), h('span', {}, o.desc)),
+      o.value === cur ? icon('check', { size: 18, stroke: 2.2 }) : null,
+    ),
+  );
+  const basis = rate.days >= 365 ? '近一年' : `近 ${rate.days} 天`;
+  const sheet = openSheet({
+    title: '实时估算',
+    auto: true,
+    body: h('div', { class: 'live-sheet' }, h('p', { class: 'muted small' }, `按${basis}的平均增速，从上次记录起每秒往上加。只是展示，不改任何记录。`), h('div', { class: 'live-opts' }, ...opts)),
+    footer: button('关闭实时估算', async () => {
+      await sheet.close();
+      await store.updateSettings({ liveGrowth: false });
+      toast('已关闭，可在「设置 → 实时增长」重新打开');
+    }, { kind: 'secondary', block: true }),
+  });
 }
 
 /** 记录的时刻：当天新建的用创建时间，补记的旧日期按当天中午算。 */
@@ -110,18 +140,29 @@ export function buildHome(ctx) {
       frag.push(cover);
       // 实时增长：按近一年的平均增速，从这条记录起每秒往上加（估算，不改任何数据）
       const hero = cover.querySelector('.hero');
-      let heroFen = recordedTotal(comp);
-      const rate = settings.liveGrowth !== false && !settings.hideAmounts && heroFen > 0 ? growthRate(snapshots) : null;
-      if (rate) {
-        heroFen = liveHero(hero, { fen0: heroFen, t0: recordTime(comp), perSec: rate.perSec, unit });
-        const per = rate.perSec >= 1 ? ['每秒', rate.perSec] : ['每天', rate.perSec * 86400];
-        hero.after(h('div', { class: 'cover-live', title: `按近 ${rate.days >= 365 ? '一年' : `${rate.days} 天`}的平均增速估算` }, h('i', { class: 'pulse', 'aria-hidden': 'true' }), '实时估算', h('span', { class: 'sep', 'aria-hidden': 'true' }), `${per[0]} `, h('b', { class: 'mask' }, `${formatSigned(Math.max(1, Math.round(per[1])), 'yuan')}`)));
-      }
+      const fen0 = recordedTotal(comp);
+      const rate = settings.liveGrowth !== false && !settings.hideAmounts && fen0 > 0 ? growthRate(snapshots) : null;
+      const welcome = !welcomed && !settings.hideAmounts;
       if (!welcomed) {
         welcomed = true;
         cover.classList.add('welcome');
-        if (!settings.hideAmounts) animateHero(hero, heroFen, unit);
       }
+      if (rate) {
+        liveHero(hero, { fen0, t0: recordTime(comp), perSec: rate.perSec, unit, style: liveStyleOf(settings), welcome });
+        const per = rate.perSec >= 1 ? ['每秒', rate.perSec] : ['每天', rate.perSec * 86400];
+        hero.after(
+          h(
+            'button',
+            { type: 'button', class: 'cover-live', 'aria-label': '实时估算：换风格或关闭', onClick: () => liveSheet(store, rate) },
+            h('i', { class: 'pulse', 'aria-hidden': 'true' }),
+            '实时估算',
+            h('span', { class: 'sep', 'aria-hidden': 'true' }),
+            `${per[0]} `,
+            h('b', { class: 'mask' }, `${formatSigned(Math.max(1, Math.round(per[1])), 'yuan')}`),
+            icon('chevronR', { size: 13, stroke: 2 }),
+          ),
+        );
+      } else if (welcome) animateHero(hero, fen0, unit);
     } else {
       frag.push(coverCard({ label: '暂时算不出总资产', dateText, fen: null, complete: false, unit, changeNote: '补全各账户金额后显示总资产' }));
     }

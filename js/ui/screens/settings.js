@@ -13,6 +13,7 @@ import { APP_NAME, APP_VERSION } from '../../version.js';
 import { editGoal } from '../insights.js';
 import { categoryList } from '../categoryEditor.js';
 import { compactYuan } from '../fmt.js';
+import { LIVE_STYLES, liveStyleOf } from '../liveNumber.js';
 
 const when = (iso) => {
   const d = new Date(iso);
@@ -279,7 +280,8 @@ export function buildSettings(ctx, opts = {}) {
         { class: 'list' },
         row('操作音效', '按键、保存时的轻声提示；手机静音时不响', switchControl(s.sound !== false, (on) => set({ sound: on }).then(() => on && fx.done()), '操作音效')),
         row('触感震动', isIOS() ? 'iPhone 需 iOS 18 及以上' : null, switchControl(s.haptics !== false, (on) => set({ haptics: on }).then(() => on && fx.select()), '触感震动')),
-        row('实时增长', '首页净资产按近一年增速每秒增长（估算）', switchControl(s.liveGrowth !== false, (on) => set({ liveGrowth: on }), '实时增长')),
+        row('实时增长', '首页净资产按近一年增速每秒增长（估算）', switchControl(s.liveGrowth !== false, (on) => store.updateSettings({ liveGrowth: on }), '实时增长')),
+        s.liveGrowth !== false ? row('增长风格', null, seg(LIVE_STYLES.map(({ value, label }) => ({ value, label })), liveStyleOf(s), (v) => set({ liveStyle: v }), { label: '增长风格' })) : null,
         row('隐藏金额', '首页右上角的眼睛也能切换', switchControl(!!s.hideAmounts, (on) => set({ hideAmounts: on }), '隐藏金额')),
         row('财富目标', '首页显示达成进度', button(s.goalFen ? compactYuan(s.goalFen) : '设定', () => editGoal(store), { sm: true, kind: 'secondary' })),
         row('金额单位', null, seg([{ value: 'yuan', label: '元' }, { value: 'wan', label: '万元' }], s.unit, (v) => set({ unit: v }), { label: '金额单位' })),

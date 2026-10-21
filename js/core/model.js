@@ -30,6 +30,7 @@ export const DEFAULT_SETTINGS = Object.freeze({
   sound: true, // 操作音效
   haptics: true, // 触感震动
   liveGrowth: true, // 首页净资产按近一年增速每秒实时增长（估算）
+  liveStyle: 'glow', // 实时增长的风格：'glow' 流光 | 'flip' 翻牌 | 'roll' 滚轮
 });
 
 export const SOURCE_LABELS = Object.freeze({
