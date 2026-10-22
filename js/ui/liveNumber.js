@@ -3,7 +3,7 @@
 //  翻牌 flip —— 像机场航班牌，每个数字一块牌，变的那一格上半片翻下来；
 //  滚轮 roll —— 像机械里程表，每个数字是一圈滚轮，向上滚到新数字。
 import { h } from './dom.js';
-import { animateHero, glint, heroWidth, liveParts } from './fmt.js';
+import { animateHero, fitHero, glint, heroWidth, liveParts, splashDelay } from './fmt.js';
 
 export const LIVE_STYLES = [
   { value: 'glow', label: '流光', desc: '数字安静地平滑更新' },
@@ -102,11 +102,11 @@ function board(host, style) {
   };
   return {
     /** welcome：从全 0 开始，从左到右依次转到目标数字。 */
-    set(next, { welcome = false } = {}) {
+    set(next, { welcome = false, base = 0 } = {}) {
       if (welcome) {
         build(next.replace(/\d/g, '0'));
         const digits = cells.map((c, i) => [c, next[i]]).filter(([, c]) => isDigit(c));
-        digits.forEach(([cell, c], k) => cell.to(c, style === 'flip' ? { delay: 160 + k * 55, cascade: true } : { delay: 120 + k * 70, spin: true, ms: 1300 }));
+        digits.forEach(([cell, c], k) => cell.to(c, style === 'flip' ? { delay: base + 160 + k * 55, cascade: true } : { delay: base + 120 + k * 70, spin: true, ms: 1300 }));
         text = next;
         return;
       }
@@ -144,6 +144,7 @@ export function liveHero(hero, { fen0, t0, perSec, unit, style = 'glow', welcome
       if (i.length + d.length !== width) {
         width = i.length + d.length;
         hero.style.setProperty('--w', heroWidth(i, d, unit).toFixed(2)); // 多了一位数时重新算字号
+        fitHero(hero);
       }
       // 只改变了的部分，没变就不碰（避免每秒无谓地重绘整串数字）
       if (intEl.textContent !== i) intEl.textContent = i;
@@ -159,19 +160,25 @@ export function liveHero(hero, { fen0, t0, perSec, unit, style = 'glow', welcome
     // 按位数估一个字号，让整排牌子刚好放得下（CSS 里用容器宽度换算）
     const width = (s, k) => [...s].reduce((n, c) => n + (isDigit(c) ? 0.74 : 0.34), 0) * k;
     hero.style.setProperty('--w', (width(i0, 1) + width(`.${d0}`, 0.56) + 1.1).toFixed(2));
-    ib.set(i0, { welcome: welcome && !reduced() });
-    db.set(`.${d0}`, { welcome: welcome && !reduced() });
+    const base = splashDelay();
+    ib.set(i0, { welcome: welcome && !reduced(), base });
+    db.set(`.${d0}`, { welcome: welcome && !reduced(), base });
     if (welcome && !reduced()) {
       hero.classList.add('counting');
       setTimeout(() => {
         hero.classList.remove('counting');
         glint(hero.closest('.cover'));
-      }, style === 'flip' ? 2000 : 2300);
+      }, base + (style === 'flip' ? 2000 : 2300));
     }
+    let len = i0.length + d0.length;
     paint = () => {
       const [i, d] = liveParts(at(), unit);
       ib.set(i);
       db.set(`.${d}`);
+      if (i.length + d.length !== len) {
+        len = i.length + d.length;
+        fitHero(hero); // 多了一位数：重新量一次
+      }
     };
   }
 

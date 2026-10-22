@@ -1,15 +1,16 @@
 // 首页：封面（最近一次完整快照的总资产）→ 阶段变化 → 更新余额 → 账户明细。图表都在「分析」页。
 import { h, icon } from '../dom.js';
 import { button, emptyState, noteBox, openSheet, seg, toast } from '../components.js';
-import { accountRows, coverCard } from '../snapshotView.js';
-import { animateHero } from '../fmt.js';
+import { accountRows, coverCard, guilloche } from '../snapshotView.js';
+import { animateHero, compactYuan, fitHero, splashDelay } from '../fmt.js';
 import { LIVE_STYLES, liveHero, liveStyleOf } from '../liveNumber.js';
 import { openReport, reportNudge } from '../report.js';
-import { goalLine, kpiRow } from '../insights.js';
+import { goalLine, periodStats } from '../insights.js';
+import { card3d } from '../card3d.js';
 import { compareSnapshots, findByDate, growthRate, latestComplete, latestOverall, missingIds, previousCompleteOf, recordedTotal } from '../../core/ledger.js';
 import { checkSnapshot } from '../../core/anomalies.js';
 import { cardNumberOf, isDebt, splitTotals } from '../../core/model.js';
-import { formatMoney, formatSigned } from '../../core/money.js';
+import { formatMoney, formatPercent, formatSigned } from '../../core/money.js';
 import { dayDiff, formatDateZh, relativeDaysZh, todayISO } from '../../core/date.js';
 
 /** 备份提醒：只占一行，点一下去备份；不抢首页的视线。 */
@@ -24,6 +25,42 @@ export function backupNote(store, ctx) {
   }
   if (!text) return null;
   return h('button', { type: 'button', class: 'nudge', onClick: () => ctx.nav.goto('settings', { focus: 'backup' }) }, icon('shield', { size: 18 }), h('span', { class: 'grow' }, text), h('span', { class: 'go' }, '去备份'), icon('chevronR', { size: 16 }));
+}
+
+/**
+ * 卡片背面：像真卡的背面——顶上一道磁条，中间是阶段变化和资产构成，下面一条签名栏。
+ */
+function cardBack(store, comp, sp, settings) {
+  const { snapshots, categories } = store.state;
+  const st = periodStats(snapshots);
+  const dir = (fen) => (fen > 0 ? 'up' : fen < 0 ? 'down' : 'flat');
+  const chg = (x) => (x ? h('span', { class: `chg ${dir(x.delta)}` }, h('i', { class: 'tri', 'aria-hidden': 'true' }), `${x.delta < 0 ? '−' : x.delta > 0 ? '+' : ''}${compactYuan(Math.abs(x.delta))}`) : '—');
+  const cell = (k, v, d) => h('div', { class: 'bk-cell' }, h('div', { class: 'k' }, k), h('div', { class: 'v mask' }, v), h('div', { class: 'd' }, d));
+  const accounts = categories.filter((c) => c.enabled).length;
+  const first = [...snapshots].sort((a, b) => (a.date < b.date ? -1 : 1))[0];
+  const days = first ? dayDiff(first.date, todayISO()) + 1 : 0;
+  return h(
+    'section',
+    { class: 'cover', 'aria-label': '卡片背面：阶段变化和资产构成' },
+    guilloche(),
+    h('div', { class: 'bk-stripe', 'aria-hidden': 'true' }),
+    h(
+      'div',
+      { class: 'bk-grid' },
+      cell('较上月末', chg(st?.month), st?.month ? formatPercent(st.month.ratio) : '上月无记录'),
+      cell(st?.yLabel ?? '今年以来', chg(st?.year), st?.year ? formatPercent(st.year.ratio) : '暂无比较'),
+      cell('历史最高', compactYuan(st?.peak.fen ?? 0), st?.isPeak ? '◆ 当前即新高' : `回撤 ${formatPercent(st?.drawdown)}`),
+    ),
+    h(
+      'div',
+      { class: 'bk-split' },
+      sp.hasDebt ? [h('span', {}, '资产 ', h('b', { class: 'mask' }, compactYuan(sp.assets))), h('i'), h('span', {}, '负债 ', h('b', { class: 'mask' }, compactYuan(sp.debts)))] : h('span', {}, `${accounts} 个账户`),
+      h('i'),
+      h('span', {}, `记账第 ${days} 天`),
+    ),
+    h('div', { class: 'bk-sign' }, h('span', { class: 'sig' }, settings.holderName || '资产账本'), h('span', { class: 'cvv' }, `${snapshots.length} 次记录`)),
+    h('div', { class: 'bk-foot' }, '轻点翻回正面'),
+  );
 }
 
 /** 实时估算的小面板：选风格，或者关掉。 */
@@ -69,6 +106,7 @@ export function buildHome(ctx) {
   const { store, nav } = ctx;
   const root = h('div', {});
   let welcomed = false; // 每次进入首页，总额只播一次欢迎动画；之后数据刷新直接显示
+  let flipped = false; // 卡片是否翻在背面（数据刷新重画后保持）
 
   const draw = () => {
     const { snapshots, categories, settings } = store.state;
@@ -131,12 +169,32 @@ export function buildHome(ctx) {
           card: { no: cardNumberOf(settings, snapshots), name: settings.holderName, since: [...snapshots].sort((a, b) => (a.date < b.date ? -1 : 1))[0].date.slice(0, 4) },
           ariaLabel: '最近一次完整资产快照',
         });
-      // 点封面空白处查看这条记录的明细（目标进度有自己的点按操作）
+      // 立体卡片：轻点正面看这条记录的明细，按住翻到背面，背面轻点翻回来
       cover.classList.add('tappable');
-      cover.addEventListener('click', (e) => {
-        if (!e.target.closest('button')) nav.openDetail(comp.id);
+      const back = cardBack(store, comp, sp, settings);
+      const card = card3d({
+        front: cover,
+        back,
+        flipped,
+        onTap: () => nav.openDetail(comp.id),
+        onFlip: (on) => {
+          flipped = on;
+          try {
+            localStorage.setItem('card-flipped', '1');
+          } catch {
+            /* 无痕模式下存不了，没关系 */
+          }
+          root.querySelector('.flip-hint')?.remove();
+        },
       });
-      frag.push(cover);
+      frag.push(card.el);
+      let seen = false;
+      try {
+        seen = !!localStorage.getItem('card-flipped');
+      } catch {
+        seen = true;
+      }
+      if (!seen) frag.push(h('p', { class: 'flip-hint' }, '长按卡片 · 翻到背面'));
       // 实时增长：按近一年的平均增速，从这条记录起每秒往上加（估算，不改任何数据）
       const hero = cover.querySelector('.hero');
       const fen0 = recordedTotal(comp);
@@ -144,7 +202,7 @@ export function buildHome(ctx) {
       const welcome = !welcomed && !settings.hideAmounts;
       if (!welcomed) {
         welcomed = true;
-        cover.classList.add('welcome');
+        if (!splashDelay()) card.el.classList.add('welcome'); // 从开屏飞过来时，卡片已经在位，不再上浮
       }
       if (rate) {
         liveHero(hero, { fen0, t0: recordTime(comp), perSec: rate.perSec, unit, style: liveStyleOf(settings), welcome });
@@ -163,10 +221,6 @@ export function buildHome(ctx) {
     } else {
       frag.push(coverCard({ label: '暂时算不出总资产', dateText, fen: null, complete: false, unit, changeNote: '补全各账户金额后显示总资产' }));
     }
-
-    // 阶段变化：较上月末 / 今年 / 历史最高
-    const kpis = kpiRow(snapshots);
-    if (kpis) frag.push(kpis);
 
     // 最常用的操作：更新今天的余额（今天已记过则改为修改）
     const today = todayISO();
@@ -210,9 +264,19 @@ export function buildHome(ctx) {
     }
 
     root.replaceChildren(...frag);
+    // 挂到页面之后、画出来之前，按实际宽度把大数字缩到刚好一行
+    queueMicrotask(() => root.querySelectorAll('.cover .hero').forEach(fitHero));
   };
 
   draw();
   const off = store.subscribe(draw);
-  return { el: root, destroy: off };
+  const refit = () => root.querySelectorAll('.cover .hero').forEach(fitHero);
+  window.addEventListener('resize', refit);
+  return {
+    el: root,
+    destroy: () => {
+      off();
+      window.removeEventListener('resize', refit);
+    },
+  };
 }

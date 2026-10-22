@@ -45,6 +45,26 @@ export function heroWidth(int, dec, unit) {
   return w(int) + (dec ? 0.5 * w(`.${dec}`) : 0) + 0.36 + (unit === 'wan' ? 0.45 : 0) + 0.08;
 }
 
+/** 开屏卡片正飞向首页时，首页的欢迎动画往后推这么久（毫秒），等卡片落定再开始。 */
+export const splashDelay = () => (typeof document !== 'undefined' && document.getElementById('splash') ? 900 : 0);
+
+/**
+ * 按实际渲染宽度把大数字缩到刚好放进卡片一行（字体、机型不同也不会超框）。
+ * 在挂到页面后、浏览器画出来之前同步调用，不会看到先大后小的跳动。
+ * 流光风格在从 0 数上来的途中不量（那时数字还短），翻牌 / 滚轮一开始就是最终的位数。
+ */
+export function fitHero(hero) {
+  if (!hero?.isConnected || (hero.classList.contains('counting') && !hero.classList.contains('board'))) return;
+  hero.style.fontSize = '';
+  const card = hero.parentElement;
+  const cs = getComputedStyle(card);
+  const avail = card.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+  const r = document.createRange();
+  r.selectNodeContents(hero);
+  const need = r.getBoundingClientRect().width;
+  if (avail > 0 && need > avail) hero.style.fontSize = `${((parseFloat(getComputedStyle(hero).fontSize) * avail) / need) * 0.98}px`;
+}
+
 /** 首页大数字：货币符号与小数部分缩小，整数部分最醒目。 */
 export function heroAmount(fen, unit, { dim = false } = {}) {
   const text = formatDecimal(Math.abs(fen), unit);
@@ -100,13 +120,15 @@ export function animateHero(hero, fen, unit) {
     if (decEl) decEl.textContent = finalDec;
     if (!hero.classList.contains('counting')) return;
     hero.classList.remove('counting');
+    fitHero(hero);
     glint(hero.closest('.cover'));
   };
   hero.classList.add('counting');
-  const t0 = performance.now();
+  const delay = splashDelay();
+  const t0 = performance.now() + delay;
   const dur = 1400;
   const step = (now) => {
-    const p = Math.min(1, (now - t0) / dur);
+    const p = Math.max(0, Math.min(1, (now - t0) / dur));
     if (p >= 1) return done();
     paint(Math.round(target * (1 - 2 ** (-10 * p))));
     hero._raf = requestAnimationFrame(step);
@@ -116,7 +138,7 @@ export function animateHero(hero, fen, unit) {
   setTimeout(() => {
     cancelAnimationFrame(hero._raf);
     done();
-  }, dur + 200); // 动画帧被暂停（切到后台）时也保证最后是准确的数
+  }, dur + 200 + delay); // 动画帧被暂停（切到后台）时也保证最后是准确的数
 }
 
 /** 实时估算的金额拆成整数和小数：万元时显示到元（四位小数），每秒的增长才看得见。 */
