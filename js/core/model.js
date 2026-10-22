@@ -30,16 +30,16 @@ export const DEFAULT_SETTINGS = Object.freeze({
   sound: true, // 操作音效
   haptics: true, // 触感震动
   liveGrowth: true, // 首页净资产按近一年增速每秒实时增长（估算）
-  skinV: 2, // 卡面设置的版本（换默认卡面时用）
-  coverSkin: 'gilt', // 卡面：'gilt' 鎏金 | 'noir' 黑金 | 'jade' 墨绿
+  skinV: 3, // 卡面设置的版本（换默认卡面时用）
+  coverSkin: 'ink', // 卡面：'ink' 墨 | 'paper' 素 | 'jade' 黛
   holderName: '', // 卡面上的持有人名字（可留空）
   tilt: false, // 卡面光影：倾斜手机时反光跟着动（iPhone 需授权）
   splash: true, // 开屏动画
   liveStyle: 'glow', // 实时增长的风格：'glow' 流光 | 'flip' 翻牌 | 'roll' 滚轮
 });
 
-/** 卡面：鎏金（默认）/ 黑金 / 墨绿。旧版的「香槟」并入鎏金。 */
-export const skinOf = (settings) => (settings.coverSkin === 'noir' || settings.coverSkin === 'jade' ? settings.coverSkin : 'gilt');
+/** 卡面：墨（默认）/ 素 / 黛。旧版的鎏金、黑金、香槟都并入墨。 */
+export const skinOf = (settings) => (settings.coverSkin === 'paper' || settings.coverSkin === 'jade' ? settings.coverSkin : 'ink');
 
 /**
  * 卡面上的卡号（16 位，四位一组）。用户在设置里填过就用填的；

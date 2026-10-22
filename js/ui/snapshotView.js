@@ -69,10 +69,11 @@ export function coverCard({ label, dateText, fen = null, complete = true, unit, 
           'div',
           { class: 'cover-foot' },
           h('div', { class: 'cover-no', 'aria-label': `卡号 ${card.no.join(' ')}` }, ...card.no.map((g) => h('span', {}, g))),
-          h('div', { class: 'cover-sub' }, h('b', {}, card.name || 'PRIVATE LEDGER'), h('span', {}, `SINCE ${card.since}`)),
+          h('div', { class: 'cover-sub' }, h('b', {}, card.name || 'PRIVATE LEDGER'), h('i', { 'aria-hidden': 'true' }), h('span', {}, `SINCE ${card.since}`)),
         ),
       );
     }
+    if (card) el.appendChild(h('span', { class: 'cover-seal', 'aria-hidden': 'true' }, (String(card.name ?? '').match(/[\u4e00-\u9fff]/) ?? ['账'])[0]));
     el.appendChild(h('span', { class: 'cover-sheen', 'aria-hidden': 'true' }));
     el.appendChild(h('span', { class: 'cover-edge', 'aria-hidden': 'true' }));
     return el;

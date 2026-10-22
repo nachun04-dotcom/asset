@@ -108,41 +108,49 @@ export function amountPad({ decimals, onChange, onNext, onDone }) {
   const top = h('div', { class: 'pad-top', title: '往下拉收起键盘' }, h('span', { class: 'pad-grab', 'aria-hidden': 'true' }), calc);
   const el = h('div', { class: 'amount-pad', role: 'group', 'aria-label': '金额键盘' }, top, grid);
 
-  // 往下拉收起：键盘跟着手指走，松手时拉得够远（或甩得够快）就收起，否则弹回
+  // 往下拉收起：像系统键盘一样，键盘的上沿跟着手指往下走，上面的内容同步变高；
+  // 做法是把键盘的高度随手指缩小（按键跟着上沿一起往下、从屏幕底部滑出去），松手时拉得够远或甩得够快就收起，否则弹回
   let drag = null;
+  const resetDrag = () => {
+    el.style.transition = '';
+    el.style.height = '';
+    el.style.overflow = '';
+  };
   top.addEventListener('pointerdown', (e) => {
-    drag = { id: e.pointerId, y0: e.clientY, t0: performance.now(), dy: 0, lastY: e.clientY, lastT: performance.now(), v: 0 };
+    drag = { id: e.pointerId, y0: e.clientY, dy: 0, h0: el.offsetHeight, lastY: e.clientY, lastT: performance.now(), v: 0, moved: false };
     top.setPointerCapture?.(e.pointerId);
-    el.style.transition = 'none';
   });
   top.addEventListener('pointermove', (e) => {
     if (!drag || e.pointerId !== drag.id) return;
-    const raw = e.clientY - drag.y0;
-    drag.dy = raw > 0 ? raw : -Math.sqrt(-raw) * 2; // 往上拉只有一点点阻尼感
     const now = performance.now();
     drag.v = (e.clientY - drag.lastY) / Math.max(1, now - drag.lastT);
     drag.lastY = e.clientY;
     drag.lastT = now;
-    el.style.transform = `translate3d(0, ${drag.dy}px, 0)`;
+    drag.dy = Math.max(0, e.clientY - drag.y0);
+    if (!drag.moved && drag.dy < 3) return;
+    drag.moved = true;
+    el.style.transition = 'none';
+    el.style.overflow = 'hidden';
+    el.style.height = `${Math.max(0, drag.h0 - drag.dy)}px`;
   });
   const endDrag = (e) => {
     if (!drag || e.pointerId !== drag.id) return;
-    const { dy, v } = drag;
+    const { dy, v, h0, moved } = drag;
     drag = null;
-    const h0 = el.offsetHeight || 300;
-    if (dy > Math.min(90, h0 * 0.28) || (dy > 16 && v > 0.55)) {
-      el.style.transition = 'transform 0.24s cubic-bezier(0.3, 0, 0.8, 0.4)';
-      el.style.transform = `translate3d(0, ${h0}px, 0)`;
+    if (!moved) return resetDrag();
+    if (dy > Math.min(90, h0 * 0.3) || (dy > 14 && v > 0.5)) {
+      el.style.transition = 'height 0.22s cubic-bezier(0.3, 0, 0.6, 1)';
+      el.style.height = '0px';
       fx.done();
       iosHaptic();
       setTimeout(() => {
         onDone();
-        el.style.transition = 'none';
-        el.style.transform = '';
-      }, 230);
+        resetDrag();
+      }, 220);
     } else {
-      el.style.transition = 'transform 0.42s cubic-bezier(0.2, 1.3, 0.4, 1)';
-      el.style.transform = '';
+      el.style.transition = 'height 0.36s cubic-bezier(0.2, 1, 0.3, 1)';
+      el.style.height = `${h0}px`;
+      setTimeout(resetDrag, 380);
     }
   };
   top.addEventListener('pointerup', endDrag);

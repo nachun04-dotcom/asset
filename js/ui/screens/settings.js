@@ -299,7 +299,7 @@ export function buildSettings(ctx, opts = {}) {
       return h(
         'div',
         { class: 'list' },
-        row('卡面', null, seg([{ value: 'gilt', label: '鎏金' }, { value: 'noir', label: '黑金' }, { value: 'jade', label: '墨绿' }], skin, (v) => set({ coverSkin: v }), { label: '卡面' })),
+        row('卡面', null, seg([{ value: 'ink', label: '墨' }, { value: 'paper', label: '素' }, { value: 'jade', label: '黛' }], skin, (v) => set({ coverSkin: v }), { label: '卡面' })),
         row('持有人', '显示在卡号下面', button(s.holderName || '设定', editHolder, { sm: true, kind: 'secondary' })),
         row('卡号', '首页卡片左下角，16 位', button(cardNumberOf(s, store.state.snapshots).join(' '), editCardNo, { sm: true, kind: 'secondary' })),
         row('卡面光影', '倾斜手机时，卡面高光和金边跟着光线移动', tiltSwitch),

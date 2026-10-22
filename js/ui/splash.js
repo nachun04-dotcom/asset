@@ -27,7 +27,7 @@ export function revealSplash(onReveal, { on = true } = {}) {
     clearTimeout(t);
     onReveal();
     const card = sp.querySelector('.sp-card');
-    const target = document.querySelector('.card3d .cover, .cover');
+    const target = document.querySelector('.deck .cover, .cover');
     if (quick || !card || !target) {
       sp.classList.add('out');
       setTimeout(() => sp.remove(), 360);

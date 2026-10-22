@@ -7,7 +7,9 @@ import { LIVE_STYLES, liveHero, liveStyleOf } from '../liveNumber.js';
 import { openReport, reportNudge } from '../report.js';
 import { nextMilestone, milestoneName, tierOf } from '../../core/milestones.js';
 import { goalLine, periodStats } from '../insights.js';
-import { card3d } from '../card3d.js';
+import { cardDeck } from '../card3d.js';
+import { spendChip } from '../spend.js';
+import { spendCat, summarize } from '../../core/spending.js';
 import { compareSnapshots, findByDate, growthRate, latestComplete, latestOverall, missingIds, previousCompleteOf, recordedTotal, shares } from '../../core/ledger.js';
 import { checkSnapshot } from '../../core/anomalies.js';
 import { cardNumberOf, isDebt, splitTotals } from '../../core/model.js';
@@ -29,91 +31,80 @@ export function backupNote(store, ctx) {
 }
 
 /**
- * 卡片背面：像真卡的背面——顶上一道磁条，中间是阶段变化和资产构成，下面一条签名栏。
+ * 卡片组里正面之后的几张：变化、构成、开销。和正面同一种卡面，居中一个小标题，内容只放要紧的几个数。
  */
-function cardBack(store, comp, sp, settings) {
-  const { snapshots, categories } = store.state;
-  const st = periodStats(snapshots);
-  const dir = (fen) => (fen > 0 ? 'up' : fen < 0 ? 'down' : 'flat');
-  const chg = (x) => (x ? h('span', { class: `chg ${dir(x.delta)}` }, h('i', { class: 'tri', 'aria-hidden': 'true' }), `${x.delta < 0 ? '−' : x.delta > 0 ? '+' : ''}${compactYuan(Math.abs(x.delta))}`) : '—');
-  const cell = (k, v, d) => h('div', { class: 'bk-cell' }, h('div', { class: 'k' }, k), h('div', { class: 'v mask' }, v), h('div', { class: 'd' }, d));
-  const accounts = categories.filter((c) => c.enabled).length;
-  const first = [...snapshots].sort((a, b) => (a.date < b.date ? -1 : 1))[0];
-  const days = first ? dayDiff(first.date, todayISO()) + 1 : 0;
-  return h(
-    'section',
-    { class: 'cover', 'aria-label': '卡片背面：阶段变化和资产构成' },
-    guilloche(),
-    h('div', { class: 'bk-stripe', 'aria-hidden': 'true' }),
-    pager([page1(), page2()]),
-  );
+function deckFaces(store, comp, sp, settings) {
+  const { snapshots, categories, expenses } = store.state;
+  const face = (title, ...body) => h('section', { class: 'cover face', 'aria-label': title }, guilloche(), h('div', { class: 'cover-label' }, title), h('div', { class: 'fc-body' }, ...body));
+  const out = [];
 
-  function page1() {
-    return h(
-      'div',
-      { class: 'bk-page' },
-      h(
-      'div',
-      { class: 'bk-grid' },
-      cell('较上月末', chg(st?.month), st?.month ? formatPercent(st.month.ratio) : '上月无记录'),
-      cell(st?.yLabel ?? '今年以来', chg(st?.year), st?.year ? formatPercent(st.year.ratio) : '暂无比较'),
-      cell('历史最高', compactYuan(st?.peak.fen ?? 0), st?.isPeak ? '◆ 当前即新高' : `回撤 ${formatPercent(st?.drawdown)}`),
-    ),
-    h(
-      'div',
-      { class: 'bk-split' },
-      sp.hasDebt ? [h('span', {}, '资产 ', h('b', { class: 'mask' }, compactYuan(sp.assets))), h('i'), h('span', {}, '负债 ', h('b', { class: 'mask' }, compactYuan(sp.debts)))] : h('span', {}, `${accounts} 个账户`),
-      h('i'),
-      h('span', {}, `记账第 ${days} 天`),
-    ),
-    h('div', { class: 'bk-sign' }, h('span', { class: 'sig' }, settings.holderName || '资产账本'), h('span', { class: 'cvv' }, `${snapshots.length} 次记录`)),
+  // 变化：较上月末 / 今年以来 / 历史最高
+  const st = periodStats(snapshots);
+  if (st) {
+    const dir = (fen) => (fen > 0 ? 'up' : fen < 0 ? 'down' : 'flat');
+    const signed = (fen) => `${fen < 0 ? '−' : fen > 0 ? '+' : ''}${compactYuan(Math.abs(fen))}`;
+    const row = (k, v, d, cls = '') => h('div', { class: 'fc-row' }, h('span', { class: 'k' }, k), h('span', { class: ['v', 'mask', cls] }, v), h('span', { class: 'd' }, d));
+    const first = [...snapshots].sort((a, b) => (a.date < b.date ? -1 : 1))[0];
+    const days = first ? dayDiff(first.date, todayISO()) + 1 : 0;
+    out.push(
+      face(
+        '变 化',
+        row('较上月末', st.month ? signed(st.month.delta) : '—', st.month ? formatPercent(st.month.ratio) : '上月无记录', st.month ? `chg ${dir(st.month.delta)}` : ''),
+        row(st.yLabel, st.year ? signed(st.year.delta) : '—', st.year ? formatPercent(st.year.ratio) : '暂无比较', st.year ? `chg ${dir(st.year.delta)}` : ''),
+        row('历史最高', compactYuan(st.peak.fen), st.isPeak ? '当前即新高' : `回撤 ${formatPercent(st.drawdown)}`),
+        h('div', { class: 'fc-foot' }, sp.hasDebt ? h('span', {}, '资产 ', h('b', { class: 'mask' }, compactYuan(sp.assets)), ' · 负债 ', h('b', { class: 'mask' }, compactYuan(sp.debts))) : h('span', {}, `${categories.filter((c) => c.enabled).length} 个账户`), h('span', {}, `记账第 ${days} 天`)),
+      ),
     );
   }
 
-  // 第二页：资产构成小环 + 目标（没设目标就看下一个里程碑）
-  function page2() {
-    const byId = new Map(categories.map((c) => [c.id, c]));
-    const parts = shares(comp).map((x) => ({ ...x, cat: byId.get(x.id) })).filter((x) => x.cat && !isDebt(x.cat)).sort((a, b) => b.share - a.share);
+  // 构成：资产占比小环 + 目标（没设目标就看下一个里程碑）
+  const byId = new Map(categories.map((c) => [c.id, c]));
+  const parts = shares(comp).map((x) => ({ ...x, cat: byId.get(x.id) })).filter((x) => x.cat && !isDebt(x.cat)).sort((a, b) => b.share - a.share);
+  if (parts.length) {
     const top = parts.slice(0, 4);
     const rest = parts.slice(4).reduce((n, x) => n + x.share, 0);
     const R0 = 30;
     const C = 2 * Math.PI * R0;
     let off = 0;
-    const segs = [...top.map((x) => ({ share: x.share, color: catCss(x.cat) })), ...(rest > 0 ? [{ share: rest, color: 'rgba(242,223,174,0.35)' }] : [])].map((x) => {
+    const segs = [...top.map((x) => ({ share: x.share, color: catCss(x.cat) })), ...(rest > 0 ? [{ share: rest, color: 'var(--ivory-3)' }] : [])].map((x) => {
       const len = Math.max(0, x.share * C - 1.5);
-      const el = s('circle', { cx: 40, cy: 40, r: R0, fill: 'none', stroke: x.color, 'stroke-width': 9, 'stroke-dasharray': `${len} ${C - len}`, 'stroke-dashoffset': -off, transform: 'rotate(-90 40 40)' });
+      const el = s('circle', { cx: 40, cy: 40, r: R0, fill: 'none', stroke: x.color, 'stroke-width': 7, 'stroke-dasharray': `${len} ${C - len}`, 'stroke-dashoffset': -off, transform: 'rotate(-90 40 40)' });
       off += x.share * C;
       return el;
     });
-    const ring = s('svg', { viewBox: '0 0 80 80', class: 'bk-ring', 'aria-hidden': 'true' }, s('circle', { cx: 40, cy: 40, r: R0, fill: 'none', stroke: 'rgba(0,0,0,0.25)', 'stroke-width': 9 }), ...segs);
-    const legend = h('div', { class: 'bk-legend' }, ...top.map((x) => h('div', {}, h('i', { style: `background:${catCss(x.cat)}` }), h('span', {}, x.cat.name), h('b', {}, `${(x.share * 100).toFixed(0)}%`))), rest > 0 ? h('div', {}, h('i', { style: 'background:rgba(242,223,174,0.35)' }), h('span', {}, '其他'), h('b', {}, `${(rest * 100).toFixed(0)}%`)) : null);
+    const ring = s('svg', { viewBox: '0 0 80 80', class: 'bk-ring', 'aria-hidden': 'true' }, ...segs);
+    const legend = h('div', { class: 'bk-legend' }, ...top.map((x) => h('div', {}, h('i', { style: `background:${catCss(x.cat)}` }), h('span', {}, x.cat.name), h('b', {}, `${(x.share * 100).toFixed(0)}%`))), rest > 0 ? h('div', {}, h('i', { style: 'background:var(--ivory-3)' }), h('span', {}, '其他'), h('b', {}, `${(rest * 100).toFixed(0)}%`)) : null);
     const total = recordedTotal(comp);
     let target = null;
     if (settings.goalFen) target = { name: `目标 ${compactYuan(settings.goalFen)}`, p: total / settings.goalFen };
     else {
       const nx = nextMilestone(snapshots);
-      if (nx) target = { name: `下一站 ${milestoneName(nx.fen)}`, p: nx.progress, gap: nx.gap };
+      if (nx) target = { name: `下一站 ${milestoneName(nx.fen)}`, p: nx.progress };
     }
-    return h(
-      'div',
-      { class: 'bk-page' },
-      h('div', { class: 'bk-alloc' }, ring, legend),
-      target
-        ? h('div', { class: 'bk-goal' }, h('div', { class: 'bk-goal-row' }, h('span', {}, target.name), h('b', {}, target.p >= 1 ? '已达成' : `${Math.min(99.9, target.p * 100).toFixed(1)}%`)), h('div', { class: 'goal-track' }, h('i', { style: `width:${Math.max(2, Math.min(100, target.p * 100)).toFixed(1)}%` })))
-        : null,
+    out.push(
+      face(
+        '构 成',
+        h('div', { class: 'bk-alloc' }, ring, legend),
+        target ? h('div', { class: 'bk-goal' }, h('div', { class: 'bk-goal-row' }, h('span', {}, target.name), h('b', {}, target.p >= 1 ? '已达成' : `${Math.min(99.9, target.p * 100).toFixed(1)}%`)), h('div', { class: 'goal-track' }, h('i', { style: `width:${Math.max(2, Math.min(100, target.p * 100)).toFixed(1)}%` }))) : null,
+      ),
     );
   }
-}
 
-/** 背面的两页：左右滑动切换，下面两个小点表示在第几页。 */
-function pager(pages) {
-  const track = h('div', { class: 'bk-pages' }, ...pages);
-  const dots = pages.map((_, i) => h('i', { class: i === 0 ? 'on' : '' }));
-  track.addEventListener('scroll', () => {
-    const i = Math.round(track.scrollLeft / Math.max(1, track.clientWidth));
-    dots.forEach((d, j) => d.classList.toggle('on', i === j));
-  }, { passive: true });
-  return [track, h('div', { class: 'bk-foot' }, h('span', { class: 'bk-dots' }, ...dots), h('span', {}, '左右滑动 · 轻点翻回'))];
+  // 开销：本月花了多少、今天、花得最多的三类（记过开销才有这一张）
+  if (expenses.length) {
+    const today = todayISO();
+    const m = summarize(expenses, `${today.slice(0, 7)}-01`, today);
+    const td = summarize(expenses, today, today).total;
+    out.push(
+      face(
+        '开 销',
+        h('div', { class: 'fc-big mask' }, formatMoney(m.total, 'yuan')),
+        h('div', { class: 'fc-sub' }, `本月 ${m.count} 笔 · 今天 `, h('b', { class: 'mask' }, formatMoney(td, 'yuan'))),
+        h('div', { class: 'fc-cats' }, ...m.cats.slice(0, 3).map((c) => h('span', {}, spendChip(c.key, 22), spendCat(c.key).name, h('b', { class: 'mask' }, compactYuan(c.fen))))),
+      ),
+    );
+  }
+  return out;
 }
 
 /** 实时估算的小面板：选风格，或者关掉。 */
@@ -159,7 +150,8 @@ export function buildHome(ctx) {
   const { store, nav } = ctx;
   const root = h('div', {});
   let welcomed = false; // 每次进入首页，总额只播一次欢迎动画；之后数据刷新直接显示
-  let flipped = false; // 卡片是否翻在背面（数据刷新重画后保持）
+  let page = 0; // 卡片组停在第几张（数据刷新重画后保持）
+  let deck = null;
 
   const draw = () => {
     const { snapshots, categories, settings } = store.state;
@@ -223,32 +215,22 @@ export function buildHome(ctx) {
           card: { no: cardNumberOf(settings, snapshots), name: settings.holderName, since: [...snapshots].sort((a, b) => (a.date < b.date ? -1 : 1))[0].date.slice(0, 4) },
           ariaLabel: '最近一次完整资产快照',
         });
-      // 立体卡片：轻点正面看这条记录的明细，按住翻到背面，背面轻点翻回来
+      // 卡片组：正面是净资产（轻点看这条记录的明细），往左滑依次是变化、构成、开销
       cover.classList.add('tappable');
-      const back = cardBack(store, comp, sp, settings);
-      const card = card3d({
-        front: cover,
-        back,
-        flipped,
-        onTap: () => nav.openDetail(comp.id),
-        onFlip: (on) => {
-          flipped = on;
-          try {
-            localStorage.setItem('card-flipped', '1');
-          } catch {
-            /* 无痕模式下存不了，没关系 */
-          }
-          root.querySelector('.flip-hint')?.remove();
+      const faces = [cover, ...deckFaces(store, comp, sp, settings)];
+      const card = cardDeck({
+        faces,
+        page,
+        onTap: (i) => {
+          if (i === 0) nav.openDetail(comp.id);
+          else if (faces[i].getAttribute('aria-label') === '开 销') nav.goto('spend');
+        },
+        onPage: (i) => {
+          page = i;
         },
       });
       frag.push(card.el);
-      let seen = false;
-      try {
-        seen = !!localStorage.getItem('card-flipped');
-      } catch {
-        seen = true;
-      }
-      if (!seen) frag.push(h('p', { class: 'flip-hint' }, '长按卡片 · 翻到背面'));
+      deck = card;
       // 实时增长：按近一年的平均增速，从这条记录起每秒往上加（估算，不改任何数据）
       const hero = cover.querySelector('.hero');
       const fen0 = recordedTotal(comp);
@@ -338,7 +320,10 @@ export function buildHome(ctx) {
 
     root.replaceChildren(...frag);
     // 挂到页面之后、画出来之前，按实际宽度把大数字缩到刚好一行
-    queueMicrotask(() => root.querySelectorAll('.cover .hero').forEach(fitHero));
+    queueMicrotask(() => {
+      root.querySelectorAll('.cover .hero').forEach(fitHero);
+      if (page) deck?.setPage(page);
+    });
   };
 
   draw();
