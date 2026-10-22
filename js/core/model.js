@@ -30,8 +30,8 @@ export const DEFAULT_SETTINGS = Object.freeze({
   sound: true, // 操作音效
   haptics: true, // 触感震动
   liveGrowth: true, // 首页净资产按近一年增速每秒实时增长（估算）
-  skinV: 3, // 卡面设置的版本（换默认卡面时用）
-  coverSkin: 'ink', // 卡面：'ink' 墨 | 'paper' 素 | 'jade' 黛
+  skinV: 4, // 卡面设置的版本（换默认卡面时用）
+  coverSkin: 'auto', // 卡面：'auto' 随外观 | 'ink' 墨 | 'paper' 素 | 'jade' 黛
   holderName: '', // 卡面上的持有人名字（可留空）
   tilt: false, // 卡面光影：倾斜手机时反光跟着动（iPhone 需授权）
   splash: true, // 开屏动画
@@ -39,8 +39,8 @@ export const DEFAULT_SETTINGS = Object.freeze({
   liveV: 2, // 实时增长风格设置的版本（换默认风格时用）
 });
 
-/** 卡面：墨（默认）/ 素 / 黛。旧版的鎏金、黑金、香槟都并入墨。 */
-export const skinOf = (settings) => (settings.coverSkin === 'paper' || settings.coverSkin === 'jade' ? settings.coverSkin : 'ink');
+/** 卡面：随外观（默认：浅色用「素」、深色用「墨」）/ 墨 / 素 / 黛。旧版的鎏金、黑金、香槟都按「随外观」处理。 */
+export const skinOf = (settings) => (['ink', 'paper', 'jade'].includes(settings.coverSkin) ? settings.coverSkin : 'auto');
 
 export const SOURCE_LABELS = Object.freeze({
   manual: '手动录入',

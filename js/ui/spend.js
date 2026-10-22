@@ -4,14 +4,14 @@ import { h, icon } from './dom.js';
 import { button, confirmDialog, openSheet, toast } from './components.js';
 import { fx } from './feedback.js';
 import { spendIcon } from './spendIcons.js';
-import { SPEND_CATS, isQuestion, parseSpending, spendCat } from '../core/spending.js';
+import { SPEND_CATS, iconFor, isQuestion, parseSpending, spendCat } from '../core/spending.js';
 import { formatMoney, parseAmount } from '../core/money.js';
 import { addDays, formatDateZh, todayISO } from '../core/date.js';
 
-/** 分类小图标：类别色的圆底 + 线条图形。 */
-export function spendChip(key, size = 32) {
+/** 分类小图标：类别色的圆底 + 线条图形。note：备注里有「台球」「KTV」这类关键词时换成专属图标。 */
+export function spendChip(key, size = 32, note = '') {
   const c = spendCat(key);
-  return h('span', { class: `cat-ico ${c.color >= 0 ? `c${c.color}` : 'cx'}`, style: `--sz:${size}px`, 'aria-hidden': 'true' }, spendIcon(c.icon, { size: Math.round(size * 0.52) }));
+  return h('span', { class: `cat-ico ${c.color >= 0 ? `c${c.color}` : 'cx'}`, style: `--sz:${size}px`, 'aria-hidden': 'true' }, spendIcon(iconFor(key, note), { size: Math.round(size * 0.52) }));
 }
 
 /** 今天 / 昨天 / 10月20日 */
@@ -151,7 +151,7 @@ export function openSpend(ctx, { text = '' } = {}) {
       if (date.value) patch(row, { date: date.value });
       draw();
     });
-    const chip = h('button', { type: 'button', class: ['sr-chip', st.picking === keyOf(row) && 'on'], 'aria-label': `分类：${spendCat(row.cat).name}，点按更换` }, spendChip(row.cat, 34));
+    const chip = h('button', { type: 'button', class: ['sr-chip', st.picking === keyOf(row) && 'on'], 'aria-label': `分类：${spendCat(row.cat).name}，点按更换` }, spendChip(row.cat, 34, row.note));
     chip.addEventListener('click', () => {
       st.picking = st.picking === keyOf(row) ? null : keyOf(row);
       draw();

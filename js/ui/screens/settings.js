@@ -283,7 +283,7 @@ export function buildSettings(ctx, opts = {}) {
       return h(
         'div',
         { class: 'list' },
-        row('卡面', null, seg([{ value: 'ink', label: '墨' }, { value: 'paper', label: '素' }, { value: 'jade', label: '黛' }], skin, (v) => set({ coverSkin: v }), { label: '卡面' })),
+        row('卡面', null, seg([{ value: 'auto', label: '随外观' }, { value: 'ink', label: '墨' }, { value: 'paper', label: '素' }, { value: 'jade', label: '黛' }], skin, (v) => set({ coverSkin: v }), { label: '卡面' })),
         row('持有人', '印在里程碑纪念卡上', button(s.holderName || '设定', editHolder, { sm: true, kind: 'secondary' })),
         row('卡面光影', '倾斜手机时，卡面高光和金边跟着光线移动', tiltSwitch),
         row('开屏动画', '打开 App 时的徽记动画，点一下可跳过', switchControl(s.splash !== false, (on) => set({ splash: on }), '开屏动画')),

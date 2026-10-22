@@ -31,14 +31,30 @@ export function routeFromHash(hash) {
 }
 
 const THEME_COLOR = { light: '#f5f1e8', dark: '#0b0a08' };
+const systemDark = typeof matchMedia === 'function' ? matchMedia('(prefers-color-scheme: dark)') : null;
+let lastSettings = null;
+// 跟随系统外观时，系统在浅色 / 深色之间切换，卡面也跟着换
+systemDark?.addEventListener?.('change', () => lastSettings && applyAppearance(lastSettings));
+
+/** 现在实际是不是深色（手动选了就按选的，跟随系统就看系统）。 */
+export const isDark = (settings) => settings.theme === 'dark' || (settings.theme !== 'light' && !!systemDark?.matches);
 
 export function applyAppearance(settings) {
+  lastSettings = settings;
   const root = document.documentElement;
   if (settings.theme === 'light' || settings.theme === 'dark') root.setAttribute('data-theme', settings.theme);
   else root.removeAttribute('data-theme');
   root.setAttribute('data-rise', settings.riseColor === 'green' ? 'green' : 'red');
   root.toggleAttribute('data-mask', !!settings.hideAmounts); // 隐私模式：样式里统一模糊 .mask 金额
-  root.setAttribute('data-skin', skinOf(settings)); // 封面卡面
+  // 封面卡面：「随外观」时浅色用象牙白的「素」、深色用墨色的「墨」
+  const skin = skinOf(settings);
+  root.setAttribute('data-skin', skin === 'auto' ? (isDark(settings) ? 'ink' : 'paper') : skin);
+  // 记一下外观，下次冷启动时开屏页一出来就是对的颜色（那时数据还没读出来）
+  try {
+    localStorage.setItem('appearance', settings.theme === 'light' || settings.theme === 'dark' ? settings.theme : 'auto');
+  } catch {
+    /* 存不了就按系统外观 */
+  }
   setTilt(!!settings.tilt);
   // 手动选了浅色/深色时，让状态栏颜色跟着变；跟随系统时保持 index.html 里按系统外观设置的两条
   const fixed = document.querySelector('meta[name="theme-color"][data-fixed]');

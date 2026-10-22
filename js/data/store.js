@@ -52,10 +52,10 @@ export function createStore(repo, env = {}) {
         settings.liveV = 2;
         await repo.setKV('settings', settings).catch(() => {});
       }
-      // 卡面第 3 版：低调的「墨」成为默认，老用户换一次；之后用户自己改什么就是什么
-      if (kv.settings && kv.settings.skinV !== 3) {
-        settings.coverSkin = 'ink';
-        settings.skinV = 3;
+      // 卡面第 4 版：默认「随外观」（浅色是象牙白卡、深色是墨色卡），老用户换一次；之后用户自己改什么就是什么
+      if (kv.settings && kv.settings.skinV !== 4) {
+        settings.coverSkin = 'auto';
+        settings.skinV = 4;
         await repo.setKV('settings', settings).catch(() => {});
       }
       const meta = { lastBackupAt: kv.lastBackupAt ?? null, lockCredential: kv.lockCredential ?? null, persisted: kv.persisted ?? null, preRestore: kv.preRestore ?? null, reportSeen: kv.reportSeen ?? null };

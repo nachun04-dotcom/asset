@@ -169,7 +169,7 @@ export function buildSpend(ctx) {
               h(
                 'button',
                 { type: 'button', class: 'sd-row', onClick: () => openSpendEdit(ctx, e.id) },
-                spendChip(e.cat, 36),
+                spendChip(e.cat, 36, e.note),
                 h('div', { class: 'grow' }, h('div', { class: 'sd-note' }, e.note), h('div', { class: 'sd-meta' }, `${spendCat(e.cat).name} · ${e.time}`)),
                 h('div', { class: 'sd-amt mask' }, formatMoney(e.fen, 'yuan')),
               ),

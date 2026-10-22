@@ -8,6 +8,14 @@ import { dropSplash, revealSplash } from './ui/splash.js';
 
 const root = document.getElementById('app');
 
+// 最先做：按上次记下的外观给页面定好浅色 / 深色，开屏页不会先黑后白
+try {
+  const t = localStorage.getItem('appearance');
+  if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
+} catch {
+  /* 无痕模式：按系统外观 */
+}
+
 function fatal(title, text, actions = []) {
   dropSplash();
   root.replaceChildren(h('main', { class: 'screen' }, h('div', { class: 'empty' }, h('h2', {}, title), h('p', {}, text), h('div', { class: 'actions' }, ...actions))));

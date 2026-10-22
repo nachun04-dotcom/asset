@@ -10,7 +10,7 @@ export const SPEND_CATS = [
   { key: 'food', name: '餐饮', icon: 'utensils', color: 7, kw: ['早餐', '早饭', '午饭', '午餐', '中饭', '晚饭', '晚餐', '夜宵', '宵夜', '外卖', '吃饭', '吃了', '火锅', '烧烤', '食堂', '小吃', '点心', '汉堡', '麦当劳', '肯德基', '寿司', '面', '饭', '餐', '吃'] },
   { key: 'taxi', name: '交通', icon: 'car', color: 0, kw: ['打车', '滴滴', '出租', '的士', 'grab', 'uber', '网约车', '地铁', '公交', '巴士', '高铁', '火车', '动车', '车票', '机票', '飞机', '加油', '油费', '停车', '过路费', '高速', '单车', '共享单车', '船票', '车费', '路费'] },
   { key: 'stay', name: '住宿', icon: 'bed', color: 5, kw: ['酒店', '住宿', '民宿', '宾馆', '旅馆', '房租', '租金', 'airbnb', '住'] },
-  { key: 'fun', name: '娱乐', icon: 'film', color: 4, kw: ['电影', 'ktv', '唱歌', '游戏', '演唱会', '门票', '酒吧', '剧本杀', '密室', '桌游', '按摩', '足疗', '演出', '展览', '娱乐', '蹦迪', '玩'] },
+  { key: 'fun', name: '娱乐', icon: 'film', color: 4, kw: ['台球', '桌球', '斯诺克', '撞球', '保龄球', '电影', 'ktv', '唱歌', '游戏', '演唱会', '门票', '酒吧', '剧本杀', '密室', '桌游', '按摩', '足疗', '演出', '展览', '娱乐', '蹦迪', '喝酒', '啤酒', '清吧', '玩'] },
   { key: 'shop', name: '购物', icon: 'bag', color: 3, kw: ['衣服', '鞋', '裤', '包包', '淘宝', '京东', '拼多多', 'shopee', 'lazada', '购物', '化妆品', '护肤', '数码', '耳机', '网购'] },
   { key: 'daily', name: '日用', icon: 'cart', color: 2, kw: ['超市', '日用', '便利店', '7-11', '711', '水果', '买菜', '菜', '纸巾', '洗衣'] },
   { key: 'bill', name: '缴费', icon: 'zap', color: 6, kw: ['水费', '电费', '燃气', '网费', '话费', '宽带', '物业', '充值', '会员', '订阅'] },
@@ -25,6 +25,26 @@ export const SPEND_CATS = [
 ];
 const CAT = new Map(SPEND_CATS.map((c) => [c.key, c]));
 export const spendCat = (key) => CAT.get(key) ?? CAT.get('other');
+
+// 同一个分类里更具体的图标：按备注里的关键词挑（「打台球」是台球、「KTV」是麦克风、「地铁」是列车）
+const ICON_HINTS = [
+  { icon: 'billiards', kw: ['台球', '桌球', '斯诺克', '撞球'] },
+  { icon: 'ktv', kw: ['ktv', '唱歌', 'k歌'] },
+  { icon: 'gamepad', kw: ['游戏', 'steam', 'switch', 'ps5', '电玩'] },
+  { icon: 'train', kw: ['地铁', '高铁', '火车', '动车', '轻轨'] },
+  { icon: 'bus', kw: ['公交', '巴士', '大巴'] },
+  { icon: 'plane', kw: ['机票', '飞机', '航班'] },
+  { icon: 'wine', kw: ['酒吧', '喝酒', '啤酒', '红酒', '白酒', '清吧'] },
+  { icon: 'swim', kw: ['游泳'] },
+  { icon: 'ball', kw: ['篮球', '足球', '排球'] },
+  { icon: 'shirt', kw: ['衣服', '裤子', '裙子', '外套', 't恤'] },
+];
+
+/** 一笔开销该用的图标：备注里有更具体的关键词就用专属图标，否则用分类图标。 */
+export function iconFor(cat, note = '') {
+  const t = String(note).toLowerCase();
+  return ICON_HINTS.find((x) => x.kw.some((k) => t.includes(k)))?.icon ?? spendCat(cat).icon;
+}
 
 /** 按关键词认分类：最早出现、同位置时最长的关键词说了算。 */
 export function guessCat(text) {
