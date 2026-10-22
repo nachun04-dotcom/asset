@@ -8,7 +8,7 @@ import { openReport, reportNudge } from '../report.js';
 import { goalLine, kpiRow } from '../insights.js';
 import { compareSnapshots, findByDate, growthRate, latestComplete, latestOverall, missingIds, previousCompleteOf, recordedTotal } from '../../core/ledger.js';
 import { checkSnapshot } from '../../core/anomalies.js';
-import { isDebt, splitTotals } from '../../core/model.js';
+import { cardNumberOf, isDebt, splitTotals } from '../../core/model.js';
 import { formatMoney, formatSigned } from '../../core/money.js';
 import { dayDiff, formatDateZh, relativeDaysZh, todayISO } from '../../core/date.js';
 
@@ -128,7 +128,7 @@ export function buildHome(ctx) {
           fen: recordedTotal(comp),
           unit,
           bar: goalLine(store, recordedTotal(comp)),
-          owner: settings.holderName ? { name: settings.holderName, since: [...snapshots].sort((a, b) => (a.date < b.date ? -1 : 1))[0].date.slice(0, 4) } : null,
+          card: { no: cardNumberOf(settings, snapshots), name: settings.holderName, since: [...snapshots].sort((a, b) => (a.date < b.date ? -1 : 1))[0].date.slice(0, 4) },
           ariaLabel: '最近一次完整资产快照',
         });
       // 点封面空白处查看这条记录的明细（目标进度有自己的点按操作）

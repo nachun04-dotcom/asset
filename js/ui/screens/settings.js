@@ -6,7 +6,7 @@ import { openTemplates } from './importHub.js';
 import { MIN_PASSWORD_LENGTH, createBackup, openBackup } from '../../core/backup.js';
 import { exportCSV } from '../../core/csvExport.js';
 import { dayDiff, todayISO } from '../../core/date.js';
-import { skinOf, sortedCategories } from '../../core/model.js';
+import { cardNumberOf, skinOf, sortedCategories } from '../../core/model.js';
 import { MIME, fileStamp, isIOS, isStandalone, pickFile, saveFile } from '../../platform.js';
 import { lockSupported, registerLock, verifyLock } from '../lock.js';
 import { APP_NAME, APP_VERSION } from '../../version.js';
@@ -255,7 +255,7 @@ export function buildSettings(ctx, opts = {}) {
   section({
     id: 'prestige',
     title: '个性化',
-    sig: (st) => JSON.stringify([st.settings.coverSkin, st.settings.holderName, st.settings.tilt, st.settings.splash, st.settings.liveGrowth, st.settings.liveStyle]),
+    sig: (st) => JSON.stringify([st.settings.coverSkin, st.settings.holderName, st.settings.cardNo, st.settings.tilt, st.settings.splash, st.settings.liveGrowth, st.settings.liveStyle]),
     build: (self) => {
       const set = (patch) => self.quiet(() => store.updateSettings(patch));
       const s = store.state.settings;
@@ -264,6 +264,22 @@ export function buildSettings(ctx, opts = {}) {
         const v = await promptDialog({ title: '卡面持有人', message: '显示在首页卡片底部，例如你的名字或英文缩写。留空则不显示。', value: s.holderName ?? '', placeholder: '如：J. LIM', maxlength: 16 });
         if (v == null) return;
         await store.updateSettings({ holderName: v.trim().slice(0, 16) });
+      };
+      const editCardNo = async () => {
+        const v = await promptDialog({
+          title: '卡号',
+          message: '填 16 位数字，留空则用自动生成的号码（由第一条记录的日期得出）。',
+          value: s.cardNo ?? '',
+          placeholder: cardNumberOf({}, store.state.snapshots).join(' '),
+          type: 'text',
+          maxlength: 19,
+          validate: (t) => {
+            const d = t.replace(/\s/g, '');
+            return d === '' || /^\d{16}$/.test(d) ? '' : '需要 16 位数字';
+          },
+        });
+        if (v == null) return;
+        await store.updateSettings({ cardNo: v.replace(/\s/g, '') || null });
       };
       // iPhone 上打开光影要先在这次点按里请求陀螺仪权限
       const tiltSwitch = switchControl(!!s.tilt, async (on) => {
@@ -284,7 +300,8 @@ export function buildSettings(ctx, opts = {}) {
         'div',
         { class: 'list' },
         row('卡面', null, seg([{ value: 'gilt', label: '鎏金' }, { value: 'noir', label: '黑金' }, { value: 'jade', label: '墨绿' }], skin, (v) => set({ coverSkin: v }), { label: '卡面' })),
-        row('持有人', '显示在首页卡片底部', button(s.holderName || '设定', editHolder, { sm: true, kind: 'secondary' })),
+        row('持有人', '显示在卡号下面', button(s.holderName || '设定', editHolder, { sm: true, kind: 'secondary' })),
+        row('卡号', '首页卡片左下角，16 位', button(cardNumberOf(s, store.state.snapshots).join(' '), editCardNo, { sm: true, kind: 'secondary' })),
         row('卡面光影', '倾斜手机时，卡面高光和金边跟着光线移动', tiltSwitch),
         row('开屏动画', '打开 App 时的徽记动画，点一下可跳过', switchControl(s.splash !== false, (on) => set({ splash: on }), '开屏动画')),
         row('实时增长', '首页净资产按近一年增速每秒增长（估算）', switchControl(s.liveGrowth !== false, (on) => store.updateSettings({ liveGrowth: on }), '实时增长')),

@@ -85,7 +85,7 @@ function roundRect(g, x, y, w, r, hgt) {
   g.closePath();
 }
 
-/** 用 Canvas 画一张 1080×1440 的纪念卡（黑底 + 香槟金卡），存到相册 / 文件。 */
+/** 用 Canvas 画一张 1080×1440 的纪念卡（黑底 + 暗金卡、浅金字），存到相册 / 文件。 */
 export async function saveCardImage(m, holder = '') {
   const t = cardText(m, holder);
   const W = 1080;
@@ -108,10 +108,11 @@ export async function saveCardImage(m, holder = '') {
   const w = W - 240;
   const ch = 1040;
   const foil = g.createLinearGradient(x, y, x + w, y + ch);
-  foil.addColorStop(0, '#f7e9c4');
-  foil.addColorStop(0.35, '#d8b56c');
-  foil.addColorStop(0.55, '#f4e0aa');
-  foil.addColorStop(1, '#b28d3e');
+  foil.addColorStop(0, '#4b3510');
+  foil.addColorStop(0.3, '#9a783a');
+  foil.addColorStop(0.5, '#574016');
+  foil.addColorStop(0.75, '#8a6a33');
+  foil.addColorStop(1, '#2c1f08');
   g.save();
   g.shadowColor = 'rgba(0,0,0,0.55)';
   g.shadowBlur = 80;
@@ -121,13 +122,13 @@ export async function saveCardImage(m, holder = '') {
   g.fill();
   g.restore();
   roundRect(g, x + 26, y + 26, w - 52, 30, ch - 52);
-  g.strokeStyle = 'rgba(80, 56, 16, 0.45)';
+  g.strokeStyle = 'rgba(236, 206, 140, 0.4)';
   g.lineWidth = 2;
   g.stroke();
   // 字
-  const ink = '#3a2a10';
+  const ink = '#f2dfae';
   g.textAlign = 'center';
-  g.fillStyle = 'rgba(58, 42, 16, 0.7)';
+  g.fillStyle = 'rgba(232, 208, 150, 0.75)';
   g.font = `500 30px ${serif}`;
   g.fillText(t.kicker.split('').join(' '), W / 2, y + 150);
   g.fillStyle = ink;
@@ -135,14 +136,14 @@ export async function saveCardImage(m, holder = '') {
   g.fillText(t.title, W / 2, y + 290);
   g.font = `400 190px ${display}`;
   g.fillText(t.big, W / 2, y + 500);
-  g.fillStyle = 'rgba(58, 42, 16, 0.35)';
+  g.fillStyle = 'rgba(232, 208, 150, 0.4)';
   g.fillRect(W / 2 - 90, y + 570, 180, 2);
   g.fillStyle = ink;
   g.font = `400 40px ${serif}`;
   g.fillText(t.total, W / 2, y + 660);
   g.font = `400 36px ${serif}`;
   g.fillText(t.date, W / 2, y + 730);
-  g.fillStyle = 'rgba(58, 42, 16, 0.7)';
+  g.fillStyle = 'rgba(232, 208, 150, 0.75)';
   g.font = `400 30px ${serif}`;
   g.fillText(t.days, W / 2, y + 790);
   g.font = `500 24px ${serif}`;

@@ -1231,20 +1231,15 @@ html[data-skin="jade"] .cover {
 .cover-sheen, .cover-edge { display: none; }
 html[data-tilt] .cover-sheen {
   display: block; position: absolute; inset: 0; z-index: 1; pointer-events: none; border-radius: inherit;
-  background:
-    radial-gradient(55% 45% at calc(50% + var(--tx, 0) * 70%) calc(35% + var(--ty, 0) * 60%), rgba(255, 238, 200, 0.3), rgba(255, 238, 200, 0.08) 45%, transparent 72%),
-    linear-gradient(115deg, transparent 30%, rgba(255, 244, 222, 0.07) 42%, rgba(255, 250, 238, 0.16) 50%, rgba(255, 244, 222, 0.07) 58%, transparent 70%);
-  background-size: 100% 100%, 300% 100%;
-  background-position: 0 0, calc(50% + var(--tx, 0) * 80%) 0;
+  background: radial-gradient(70% 60% at calc(50% + var(--tx, 0) * 22%) calc(30% + var(--ty, 0) * 18%), rgba(255, 238, 200, 0.13), rgba(255, 238, 200, 0.04) 50%, transparent 75%);
 }
 html[data-tilt] .cover-edge {
   display: block; position: absolute; inset: 8px; z-index: 2; pointer-events: none; border-radius: 19px; padding: 1px;
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor;
   mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
-  opacity: calc(0.15 + var(--tm, 0) * 0.85);
-  background: conic-gradient(from calc(var(--ta, 0) * 1deg - 50deg) at 50% 50%, transparent 0deg, rgba(255, 236, 190, 0.95) 50deg, transparent 100deg, transparent 200deg, rgba(255, 236, 190, 0.3) 230deg, transparent 260deg);
+  opacity: calc(var(--tm, 0) * 0.5);
+  background: conic-gradient(from calc(var(--ta, 0) * 1deg - 35deg) at 50% 50%, transparent 0deg, rgba(255, 236, 190, 0.85) 35deg, transparent 70deg, transparent 360deg);
 }
-html[data-tilt] .cover::after { background-position: calc(var(--tx, 0) * 6px) calc(var(--ty, 0) * 6px); }
 
 /* ---------- 里程碑纪念卡 ---------- */
 .ms-layer { position: fixed; inset: 0; z-index: 90; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 26px; padding: 24px 16px calc(24px + env(safe-area-inset-bottom)); }
@@ -1372,72 +1367,72 @@ html[data-tilt] .cover::after { background-position: calc(var(--tx, 0) * 6px) ca
 .goal-line.done .gl-row .num { color: var(--gold-soft); }
 .cover.min .cover-owner { width: 100%; margin-top: 16px; padding-top: 0; border-top: 0; }
 
-/* ================= 鎏金卡面 =================
-   全部是静态图层（不用滤镜、混合模式、渐变裁切文字），切页、滚动时不会闪。
-   由上到下：高光 → 亮拉丝 → 暗拉丝 → 金属反光带。 */
+/* ================= 鎏金卡面（暗金 · 2.5D） =================
+   像一块有厚度的暗金金属卡：深古金底色 + 细拉丝 + 扭索纹，字是浅香槟金、微微凸起。
+   下沿叠出几层金属侧边，卡片看起来有厚度；全部静态图层，不用滤镜和混合模式。 */
 :root {
   --gilt-bg:
-    radial-gradient(120% 85% at 16% -12%, rgba(255, 253, 240, 0.5), rgba(255, 250, 230, 0) 46%),
-    radial-gradient(90% 70% at 110% 120%, rgba(90, 60, 12, 0.28), rgba(90, 60, 12, 0) 60%),
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='360' height='360'%3E%3Cfilter id='n' x='0' y='0'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.004 0.85' numOctaves='2' seed='19' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 0.97 0 0 0 0 0.86 0 0 0 1.5 -0.6'/%3E%3C/filter%3E%3Crect width='360' height='360' filter='url%28%23n%29'/%3E%3C/svg%3E") 0 0 / 360px 360px,
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='360' height='360'%3E%3Cfilter id='n' x='0' y='0'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.004 0.85' numOctaves='2' seed='7' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.36 0 0 0 0 0.24 0 0 0 0 0.06 0 0 0 1.6 -0.62'/%3E%3C/filter%3E%3Crect width='360' height='360' filter='url%28%23n%29'/%3E%3C/svg%3E") 0 0 / 360px 360px,
-    linear-gradient(112deg, #7a5618 0%, #b48434 11%, #e6c477 23%, #faebbf 31%, #f0d28a 37%, #c89945 49%, #a77a2c 57%, #d8b263 69%, #f2da97 77%, #c39240 87%, #8a6220 100%);
-  --gilt-ink: #3a2808;
-  --gilt-deboss: 0 -1px 0 rgba(66, 42, 6, 0.42), 0 1px 0 rgba(255, 249, 226, 0.72);
+    radial-gradient(110% 80% at 14% -14%, rgba(255, 228, 170, 0.2), rgba(255, 228, 170, 0) 50%),
+    radial-gradient(90% 80% at 105% 115%, rgba(0, 0, 0, 0.35), rgba(0, 0, 0, 0) 60%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='360' height='360'%3E%3Cfilter id='n' x='0' y='0'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.004 0.85' numOctaves='2' seed='19' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 0.9 0 0 0 0 0.68 0 0 0 0.9 -0.46'/%3E%3C/filter%3E%3Crect width='360' height='360' filter='url%28%23n%29'/%3E%3C/svg%3E") 0 0 / 360px 360px,
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='360' height='360'%3E%3Cfilter id='n' x='0' y='0'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.004 0.85' numOctaves='2' seed='7' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.08 0 0 0 0 0.05 0 0 0 0 0.0 0 0 0 1.3 -0.5'/%3E%3C/filter%3E%3Crect width='360' height='360' filter='url%28%23n%29'/%3E%3C/svg%3E") 0 0 / 360px 360px,
+    linear-gradient(112deg, #2b1e08 0%, #4b3510 13%, #765722 25%, #9a783a 32%, #82632b 39%, #574016 51%, #3d2b0c 59%, #634719 70%, #8a6a33 77%, #5f4418 87%, #2c1f08 100%);
+  --gilt-ink: #f2dfae;
+  --gilt-raise: 0 1px 1px rgba(12, 7, 0, 0.75), 0 -1px 0 rgba(255, 234, 186, 0.16);
+  --gilt-edge: 0 1px 0 #7a5b26, 0 2px 0 #5e4519, 0 3px 0 #4a3511, 0 4px 0 #3a290c, 0 5px 0 #2c1f08;
 }
 html[data-skin="gilt"] .cover {
-  --ivory: #3a2808; --ivory-2: rgba(58, 40, 8, 0.82); --ivory-3: rgba(66, 46, 12, 0.66);
-  --gold-soft: #5f410f; --gold-line: rgba(92, 64, 18, 0.45); --up-c: #93291d; --down-c: #245f43;
+  --ivory: #f2dfae; --ivory-2: rgba(244, 226, 180, 0.9); --ivory-3: rgba(240, 218, 166, 0.8);
+  --gold-soft: #e6c886; --gold-line: rgba(232, 204, 140, 0.34); --up-c: #f3a68f; --down-c: #9fd4b4;
   color: var(--gilt-ink);
   background: var(--gilt-bg);
-  text-shadow: 0 1px 0 rgba(255, 246, 214, 0.55);
+  text-shadow: var(--gilt-raise);
+  margin-bottom: 5px;
   box-shadow:
-    0 26px 50px -26px rgba(92, 60, 8, 0.7), 0 3px 8px -2px rgba(92, 60, 8, 0.25),
-    inset 0 1px 0 rgba(255, 253, 238, 0.95), inset 0 -1.5px 0 rgba(92, 60, 10, 0.55),
-    inset 1px 0 0 rgba(255, 246, 214, 0.45), inset -1px 0 0 rgba(120, 84, 22, 0.45);
+    var(--gilt-edge),
+    0 28px 46px -22px rgba(0, 0, 0, 0.72), 0 10px 18px -10px rgba(40, 26, 4, 0.5),
+    inset 0 1px 0 rgba(255, 232, 178, 0.55), inset 0 -1px 0 rgba(0, 0, 0, 0.5),
+    inset 1px 0 0 rgba(255, 226, 164, 0.18), inset -1px 0 0 rgba(0, 0, 0, 0.3),
+    inset 0 0 0 1px rgba(255, 222, 150, 0.06);
 }
-/* 压印的内框：一道压进金属的细线，下沿带一线反光；外侧再一道更淡的线，成双线框 */
+/* 内框：一道微微凸起的金线（上沿亮、下沿暗），外侧一道更淡的线，成双线框 */
 html[data-skin="gilt"] .cover::before {
-  border-color: rgba(92, 64, 18, 0.5);
-  box-shadow: 0 1px 0 rgba(255, 248, 222, 0.6), inset 0 1px 0 rgba(255, 248, 222, 0.4);
-  outline: 1px solid rgba(92, 64, 18, 0.18); outline-offset: 3px;
+  border-color: rgba(236, 206, 140, 0.38);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(0, 0, 0, 0.28);
+  outline: 1px solid rgba(236, 206, 140, 0.12); outline-offset: 3px;
 }
 html[data-skin="gilt"] .cover::after { display: none; }
-html[data-skin="gilt"] .cover .guilloche { color: rgba(92, 62, 14, 0.22); }
-/* 大数字：压进金面里的字——上沿一道暗、下沿一道亮 */
-html[data-skin="gilt"] .cover .hero { color: var(--gilt-ink); text-shadow: var(--gilt-deboss); }
-html[data-skin="gilt"] .hero .cur, html[data-skin="gilt"] .hero .suf { color: #6a4a14; -webkit-text-fill-color: #6a4a14; }
-html[data-skin="gilt"] .hero .dec { color: #5a3e10; -webkit-text-fill-color: #5a3e10; }
-html[data-skin="gilt"] .cover .cover-label { text-shadow: var(--gilt-deboss); }
-html[data-skin="gilt"] .cover.min .cover-label::before, html[data-skin="gilt"] .cover.min .cover-label::after { opacity: 0.8; box-shadow: 0 1px 0 rgba(255, 249, 226, 0.6); }
-html[data-skin="gilt"] .cover .tag { background: rgba(58, 40, 8, 0.08); }
-html[data-skin="gilt"] .cover .stamp.warn { color: #7a4a08; border-color: rgba(122, 74, 8, 0.6); }
-html[data-skin="gilt"] .cover-delta, html[data-skin="gilt"] .cover-split i { border-color: rgba(92, 64, 18, 0.22); }
-html[data-skin="gilt"] .cover .goal-track, html[data-skin="gilt"] .goal-line .goal-track { background: rgba(70, 48, 12, 0.16); box-shadow: 0 1px 0 rgba(255, 249, 226, 0.5); }
-html[data-skin="gilt"] .cover .goal-track i { background: linear-gradient(90deg, #5a3d0e, #8a6420); box-shadow: none; }
-html[data-skin="gilt"] .cover-live:active { background: rgba(58, 40, 8, 0.08); }
-html[data-skin="gilt"] .cover-owner { border-color: rgba(92, 64, 18, 0.24); }
-html[data-skin="gilt"] .cover-owner b { text-shadow: var(--gilt-deboss); }
-html[data-skin="gilt"] .rl-strip > span { color: var(--gilt-ink); -webkit-text-fill-color: var(--gilt-ink); text-shadow: var(--gilt-deboss); }
-html[data-skin="gilt"] .rp-big { color: var(--gilt-ink); text-shadow: var(--gilt-deboss); }
-html[data-skin="gilt"] .cover.tappable:active::before { border-color: rgba(92, 64, 18, 0.75); }
-/* 欢迎光、倾斜光：金面上用白光，才像金属反光 */
-html[data-skin="gilt"] .trace i { background: conic-gradient(from 0deg, transparent 0deg 262deg, rgba(255, 255, 248, 0.25) 292deg, rgba(255, 255, 250, 0.9) 330deg, #ffffff 348deg, rgba(255, 255, 250, 0.75) 355deg, transparent 360deg); }
-html[data-tilt][data-skin="gilt"] .cover-sheen {
-  background:
-    radial-gradient(60% 50% at calc(50% + var(--tx, 0) * 70%) calc(35% + var(--ty, 0) * 60%), rgba(255, 255, 245, 0.42), rgba(255, 252, 235, 0.1) 45%, transparent 72%),
-    linear-gradient(115deg, transparent 28%, rgba(255, 255, 248, 0.12) 40%, rgba(255, 255, 252, 0.34) 50%, rgba(255, 255, 248, 0.12) 60%, transparent 72%);
-  background-size: 100% 100%, 300% 100%;
-  background-position: 0 0, calc(50% + var(--tx, 0) * 80%) 0;
-}
-html[data-tilt][data-skin="gilt"] .cover-edge { background: conic-gradient(from calc(var(--ta, 0) * 1deg - 50deg) at 50% 50%, transparent 0deg, rgba(255, 255, 252, 0.95) 50deg, transparent 100deg, transparent 200deg, rgba(255, 255, 250, 0.4) 230deg, transparent 260deg); }
+html[data-skin="gilt"] .cover .guilloche { color: rgba(240, 210, 140, 0.075); }
+html[data-skin="gilt"] .cover .hero { color: #f4e2b2; text-shadow: 0 1px 1px rgba(10, 6, 0, 0.8), 0 2px 6px rgba(0, 0, 0, 0.35), 0 -1px 0 rgba(255, 238, 196, 0.2); }
+html[data-skin="gilt"] .hero .cur, html[data-skin="gilt"] .hero .suf { color: #d9b874; -webkit-text-fill-color: #d9b874; }
+html[data-skin="gilt"] .hero .dec { color: #e2c88c; -webkit-text-fill-color: #e2c88c; }
+html[data-skin="gilt"] .cover.min .cover-label::before, html[data-skin="gilt"] .cover.min .cover-label::after { opacity: 0.7; }
+html[data-skin="gilt"] .cover .tag { background: rgba(242, 223, 174, 0.1); }
+html[data-skin="gilt"] .cover .goal-track, html[data-skin="gilt"] .goal-line .goal-track { background: rgba(0, 0, 0, 0.28); box-shadow: 0 1px 0 rgba(255, 232, 178, 0.12); }
+html[data-skin="gilt"] .cover .goal-track i { background: linear-gradient(90deg, #a07c3e, #f0d690); box-shadow: none; }
+html[data-skin="gilt"] .cover-live:active { background: rgba(242, 223, 174, 0.08); }
+html[data-skin="gilt"] .rl-strip > span { color: var(--gilt-ink); -webkit-text-fill-color: var(--gilt-ink); }
+html[data-skin="gilt"] .rp-big { color: var(--gilt-ink); }
+html[data-skin="gilt"] .cover.tappable:active::before { border-color: rgba(246, 222, 160, 0.6); }
+html[data-skin="gilt"] .trace i { background: conic-gradient(from 0deg, transparent 0deg 262deg, rgba(255, 236, 190, 0.18) 292deg, rgba(255, 238, 196, 0.8) 330deg, #fff6dc 348deg, rgba(255, 242, 210, 0.6) 355deg, transparent 360deg); }
 
 /* 扭索纹：所有卡面都有，颜色随卡面 */
 .guilloche { position: absolute; inset: 0; z-index: -1; width: 100%; height: 100%; pointer-events: none; color: rgba(214, 186, 128, 0.07); }
-html[data-tilt] .guilloche { transform: translate3d(calc(var(--tx, 0) * 5px), calc(var(--ty, 0) * 5px), 0); }
 
-/* 里程碑纪念卡：同一种鎏金 */
-.ms-card { isolation: isolate; background: var(--gilt-bg); color: var(--gilt-ink); text-shadow: 0 1px 0 rgba(255, 246, 214, 0.55); }
-.ms-card .ms-big { color: var(--gilt-ink); text-shadow: var(--gilt-deboss); }
-.ms-card::before { border-color: rgba(92, 64, 18, 0.5); box-shadow: 0 1px 0 rgba(255, 248, 222, 0.6), inset 0 1px 0 rgba(255, 248, 222, 0.4); }
-.ms-card .guilloche { color: rgba(92, 62, 14, 0.2); }
+/* ---------- 卡号 + 持有人：像真卡一样放在左下 ---------- */
+.cover-foot { align-self: stretch; margin-top: 22px; text-align: left; }
+.cover-no { font: 500 15.5px/1 var(--font-latin); letter-spacing: 0.2em; font-variant-numeric: tabular-nums lining-nums; color: var(--ivory); white-space: nowrap; }
+.cover-no span + span { margin-left: 0.55em; }
+.cover-sub { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-top: 10px; font: 500 9.5px/1 var(--font-latin); letter-spacing: 0.26em; color: var(--ivory-3); }
+.cover-sub b { font: 500 11px/1 var(--font-latin); letter-spacing: 0.24em; color: var(--ivory-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-transform: uppercase; }
+.cover.min .goal-line + .cover-foot { margin-top: 18px; }
+
+/* 里程碑纪念卡：同一种暗金 */
+.ms-card { isolation: isolate; background: var(--gilt-bg); color: var(--gilt-ink); text-shadow: var(--gilt-raise); box-shadow: var(--gilt-edge), 0 40px 80px -24px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 232, 178, 0.55), inset 0 -1px 0 rgba(0, 0, 0, 0.5); }
+.ms-card .ms-big { color: #f4e2b2; text-shadow: 0 1px 1px rgba(10, 6, 0, 0.8), 0 2px 8px rgba(0, 0, 0, 0.35); }
+.ms-card::before { border-color: rgba(236, 206, 140, 0.38); box-shadow: 0 1px 0 rgba(0, 0, 0, 0.4); }
+.ms-card .guilloche { color: rgba(240, 210, 140, 0.08); }
+.ms-card .ms-kicker, .ms-card .ms-days, .ms-card .ms-foot { color: rgba(232, 208, 150, 0.72); }
+.ms-card .ms-kicker i { background: rgba(232, 208, 150, 0.7); }
+.ms-card .ms-rule { background: rgba(232, 208, 150, 0.4); }
+.ms-card .ms-foot b { color: var(--gilt-ink); }

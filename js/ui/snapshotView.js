@@ -48,7 +48,7 @@ export function guilloche() {
  * 封面：深色的「存折」卡片，是整个 App 里唯一的视觉焦点。
  * @param change { fen, ratio } 与上一条的变化（可为 null）；changeNote 说明比较对象
  */
-export function coverCard({ label, dateText, fen = null, complete = true, unit, change = null, changeNote = null, note = null, bar = null, split = null, owner = null, minimal = false, ariaLabel }) {
+export function coverCard({ label, dateText, fen = null, complete = true, unit, change = null, changeNote = null, note = null, bar = null, split = null, owner = null, card = null, minimal = false, ariaLabel }) {
   // 首页用的极简版：居中只放标题、大数字和一行小字（日期 / 实时增长），其余都不放
   if (minimal) {
     const el = h(
@@ -60,7 +60,17 @@ export function coverCard({ label, dateText, fen = null, complete = true, unit, 
     );
     el.prepend(guilloche());
     if (bar) el.appendChild(bar);
-    if (owner) el.appendChild(h('div', { class: 'cover-owner' }, h('span', {}, `SINCE ${owner.since}`), h('b', {}, owner.name)));
+    // 左下角：卡号（四位一组），下面一行是持有人和开始记账的年份
+    if (card) {
+      el.appendChild(
+        h(
+          'div',
+          { class: 'cover-foot' },
+          h('div', { class: 'cover-no', 'aria-label': `卡号 ${card.no.join(' ')}` }, ...card.no.map((g) => h('span', {}, g))),
+          h('div', { class: 'cover-sub' }, h('b', {}, card.name || 'PRIVATE LEDGER'), h('span', {}, `SINCE ${card.since}`)),
+        ),
+      );
+    }
     el.appendChild(h('span', { class: 'cover-sheen', 'aria-hidden': 'true' }));
     el.appendChild(h('span', { class: 'cover-edge', 'aria-hidden': 'true' }));
     return el;

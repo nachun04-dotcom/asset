@@ -40,7 +40,7 @@ function onOrient(e) {
   if (!base) base = { b: e.beta, g: e.gamma };
   base.b += (e.beta - base.b) * 0.003;
   base.g += (e.gamma - base.g) * 0.003;
-  target = { x: clamp((e.gamma - base.g) / 14), y: clamp((e.beta - base.b) / 14) };
+  target = { x: clamp((e.gamma - base.g) / 20), y: clamp((e.beta - base.b) / 20) };
   kick();
 }
 

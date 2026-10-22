@@ -153,6 +153,7 @@ export function validatePayload(p) {
   else if (s.coverSkin === 'champagne') settings.coverSkin = 'gilt';
   if (typeof s.holderName === 'string') settings.holderName = s.holderName.trim().slice(0, 16);
   if (typeof s.tilt === 'boolean') settings.tilt = s.tilt;
+  if (typeof s.cardNo === 'string' && /^\d{16}$/.test(s.cardNo)) settings.cardNo = s.cardNo;
   if (typeof s.splash === 'boolean') settings.splash = s.splash;
   if (Number.isSafeInteger(s.goalFen) && s.goalFen > 0) settings.goalFen = s.goalFen;
   if (Number.isInteger(s.backupRemindDays) && s.backupRemindDays >= 1 && s.backupRemindDays <= 365) settings.backupRemindDays = s.backupRemindDays;

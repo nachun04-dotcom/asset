@@ -41,6 +41,20 @@ export const DEFAULT_SETTINGS = Object.freeze({
 /** 卡面：鎏金（默认）/ 黑金 / 墨绿。旧版的「香槟」并入鎏金。 */
 export const skinOf = (settings) => (settings.coverSkin === 'noir' || settings.coverSkin === 'jade' ? settings.coverSkin : 'gilt');
 
+/**
+ * 卡面上的卡号（16 位，四位一组）。用户在设置里填过就用填的；
+ * 否则按第一条记录生成一个固定的号码：8888 · 年份 · 月日 · 由记录编号算出的四位校验。
+ */
+export function cardNumberOf(settings, snapshots = []) {
+  const own = String(settings.cardNo ?? '').replace(/\D/g, '');
+  if (own.length === 16) return own.match(/.{4}/g);
+  const first = [...snapshots].sort((a, b) => (a.date < b.date ? -1 : 1))[0];
+  const d = (first?.date ?? '2026-01-01').replace(/-/g, '');
+  let hsh = 7;
+  for (const c of String(first?.id ?? d)) hsh = (hsh * 31 + c.charCodeAt(0)) % 10000;
+  return ['8888', d.slice(0, 4), d.slice(4, 8), String(hsh).padStart(4, '0')];
+}
+
 export const SOURCE_LABELS = Object.freeze({
   manual: '手动录入',
   text: '文本导入',
