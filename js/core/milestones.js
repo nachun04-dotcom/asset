@@ -59,7 +59,7 @@ export function freshMilestone(before, after, snap) {
   return fresh.length ? fresh[fresh.length - 1] : null;
 }
 
-/** 卡片等级：按净资产落在哪一档，卡面右上角压印对应的字。 */
+/** 卡片等级：跨进新的一档时，里程碑纪念卡上写「卡片升级」。 */
 export const TIERS = [
   { min: 0, name: 'CLASSIC', zh: '经典' },
   { min: 50 * WAN, name: 'GOLD', zh: '金卡' },
@@ -68,7 +68,6 @@ export const TIERS = [
   { min: 1000 * WAN, name: 'CENTURION', zh: '百夫长' },
   { min: 10000 * WAN, name: 'SOVEREIGN', zh: '至尊' },
 ];
-export const tierOf = (fen) => [...TIERS].reverse().find((t) => fen >= t.min) ?? TIERS[0];
 
 /** 关口的叫法：100 万、1500 万、1 亿、1.5 亿。 */
 export function milestoneName(fen) {

@@ -46,6 +46,12 @@ export function createStore(repo, env = {}) {
         await repo.setKV('categories', categories);
       }
       const settings = { ...DEFAULT_SETTINGS, ...(kv.settings ?? {}) };
+      // 实时增长第 2 版：默认改为滚轮，老用户换一次
+      if (kv.settings && kv.settings.liveV !== 2) {
+        settings.liveStyle = 'roll';
+        settings.liveV = 2;
+        await repo.setKV('settings', settings).catch(() => {});
+      }
       // 卡面第 3 版：低调的「墨」成为默认，老用户换一次；之后用户自己改什么就是什么
       if (kv.settings && kv.settings.skinV !== 3) {
         settings.coverSkin = 'ink';

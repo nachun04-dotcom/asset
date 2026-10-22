@@ -6,11 +6,11 @@ import { h } from './dom.js';
 import { animateHero, fitHero, glint, heroWidth, liveParts, splashDelay } from './fmt.js';
 
 export const LIVE_STYLES = [
+  { value: 'roll', label: '滚轮', desc: '像机械表的转轮，数字向上滚动' },
   { value: 'glow', label: '流光', desc: '数字安静地平滑更新' },
   { value: 'flip', label: '翻牌', desc: '像机场航班牌，逐格翻动' },
-  { value: 'roll', label: '滚轮', desc: '像机械里程表，数字向上滚动' },
 ];
-export const liveStyleOf = (settings) => (LIVE_STYLES.some((s) => s.value === settings.liveStyle) ? settings.liveStyle : 'glow');
+export const liveStyleOf = (settings) => (LIVE_STYLES.some((s) => s.value === settings.liveStyle) ? settings.liveStyle : 'roll');
 
 const isDigit = (c) => c >= '0' && c <= '9';
 const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -158,7 +158,9 @@ export function liveHero(hero, { fen0, t0, perSec, unit, style = 'glow', welcome
     const db = board(decEl, style);
     const [i0, d0] = liveParts(at(), unit);
     // 按位数估一个字号，让整排牌子刚好放得下（CSS 里用容器宽度换算）
-    const width = (s, k) => [...s].reduce((n, c) => n + (isDigit(c) ? 0.74 : 0.34), 0) * k;
+    // 一格的宽度：翻牌的牌子 0.74em，滚轮的数字 0.64em；逗号小数点约 0.32em（最后再按实测宽度微调）
+    const cell = style === 'flip' ? 0.74 : 0.64;
+    const width = (s, k) => [...s].reduce((n, c) => n + (isDigit(c) ? cell : 0.32), 0) * k;
     hero.style.setProperty('--w', (width(i0, 1) + width(`.${d0}`, 0.56) + 1.1).toFixed(2));
     const base = splashDelay();
     ib.set(i0, { welcome: welcome && !reduced(), base });

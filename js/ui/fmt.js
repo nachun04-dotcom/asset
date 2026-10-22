@@ -49,7 +49,7 @@ export function heroWidth(int, dec, unit) {
 export const splashDelay = () => (typeof document !== 'undefined' && document.getElementById('splash') ? 900 : 0);
 
 /**
- * 按实际渲染宽度把大数字缩到刚好放进卡片一行（字体、机型不同也不会超框）。
+ * 按实际渲染宽度把大数字调到刚好放进卡片一行（字体、机型不同也不会超框，也不会小得空荡）。
  * 在挂到页面后、浏览器画出来之前同步调用，不会看到先大后小的跳动。
  * 流光风格在从 0 数上来的途中不量（那时数字还短），翻牌 / 滚轮一开始就是最终的位数。
  */
@@ -62,7 +62,12 @@ export function fitHero(hero) {
   const r = document.createRange();
   r.selectNodeContents(hero);
   const need = r.getBoundingClientRect().width;
-  if (avail > 0 && need > avail) hero.style.fontSize = `${((parseFloat(getComputedStyle(hero).fontSize) * avail) / need) * 0.98}px`;
+  if (!(avail > 0 && need > 0)) return;
+  // 放得下就适当放大（翻牌、滚轮按估算偏保守），放不下就缩小；上限：滚轮 / 翻牌 54px，普通数字 64px
+  const fs = parseFloat(getComputedStyle(hero).fontSize);
+  const cap = hero.classList.contains('board') ? 54 : 64;
+  const next = Math.min(cap, (fs * avail * 0.96) / need);
+  if (Math.abs(next - fs) > 0.5) hero.style.fontSize = `${next}px`;
 }
 
 /** 首页大数字：货币符号与小数部分缩小，整数部分最醒目。 */

@@ -291,7 +291,6 @@ h1, h2, h3, p { margin: 0; }
 .hero .suf { font: 400 0.36em/1 var(--font-serif); color: var(--gold-soft); -webkit-text-fill-color: var(--gold-soft); margin-left: 6px; letter-spacing: 0.1em; }
 .cover .hero.dim { color: var(--ivory-3); }
 .cover-delta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; font-size: 13.5px; min-height: 22px; padding-top: 14px; border-top: 1px solid rgba(214, 186, 128, 0.16); }
-.cover-note { color: var(--ivory-3); font-size: 12.5px; letter-spacing: 0.04em; }
 .cover .tag { background: rgba(244, 236, 219, 0.1); color: var(--ivory-2); }
 .cover .stamp, .cover .stamp.ok { color: var(--gold-soft); border-color: rgba(220, 194, 142, 0.5); border-width: 1px; border-radius: 999px; padding: 5px 10px; font-weight: 500; letter-spacing: 0.2em; }
 .cover .stamp.warn { color: #f0c46c; border-color: rgba(240, 196, 108, 0.7); }
@@ -898,7 +897,7 @@ html[data-mask] .cover .hero::after {
 
 /* ---------- 动效：页面进入时内容依次浮现；按压反馈稍作延迟，滑动时不闪 ---------- */
 @keyframes rise { from { opacity: 0; transform: translate3d(0, 14px, 0); } to { opacity: 1; transform: none; } }
-.screen.enter > div > :not(.cover):not(.deck) { animation: rise 0.62s cubic-bezier(0.22, 1, 0.36, 1) backwards; }
+.screen.enter > div > :not(.cover):not(.card3d) { animation: rise 0.62s cubic-bezier(0.22, 1, 0.36, 1) backwards; }
 .screen.enter > div > *:nth-child(2) { animation-delay: 0.05s; }
 .screen.enter > div > *:nth-child(3) { animation-delay: 0.1s; }
 .screen.enter > div > *:nth-child(4) { animation-delay: 0.15s; }
@@ -1429,7 +1428,6 @@ html[data-skin="paper"] .cover .hero { color: #1f1c18; text-shadow: 0 1px 0 rgba
 html:is([data-skin="ink"], [data-skin="paper"], [data-skin="jade"]) .hero .cur, html:is([data-skin="ink"], [data-skin="paper"], [data-skin="jade"]) .hero .dec { color: var(--ivory-3); -webkit-text-fill-color: var(--ivory-3); }
 html:is([data-skin="ink"], [data-skin="paper"], [data-skin="jade"]) .cover .cover-label { color: var(--ivory-3); letter-spacing: 0.5em; }
 html:is([data-skin="ink"], [data-skin="paper"], [data-skin="jade"]) .cover.min .cover-label::before, html:is([data-skin="ink"], [data-skin="paper"], [data-skin="jade"]) .cover.min .cover-label::after { background: var(--gold-soft); opacity: 0.45; }
-html:is([data-skin="ink"], [data-skin="paper"], [data-skin="jade"]) .cover-no { color: var(--ivory-2); }
 html[data-skin="paper"] .cover .guilloche { color: rgba(80, 64, 40, 0.05); }
 html:is([data-skin="ink"], [data-skin="jade"]) .cover .guilloche { color: rgba(255, 250, 240, 0.028); }
 html:is([data-skin="ink"], [data-skin="paper"], [data-skin="jade"]) .cover .goal-track { background: color-mix(in srgb, var(--ivory) 12%, transparent); box-shadow: none; }
@@ -1437,25 +1435,11 @@ html:is([data-skin="ink"], [data-skin="paper"], [data-skin="jade"]) .cover .goal
 html:is([data-skin="ink"], [data-skin="paper"], [data-skin="jade"]) .trace i { background: conic-gradient(from 0deg, transparent 0deg 280deg, color-mix(in srgb, var(--gold-soft) 30%, transparent) 310deg, color-mix(in srgb, var(--gold-soft) 85%, transparent) 345deg, transparent 360deg); }
 html:is([data-skin="ink"], [data-skin="paper"], [data-skin="jade"]) .trace.glow { display: none; }
 
-/* 印章：右下角一枚小小的朱红方印——有就够了，不张扬 */
-.cover-sub i { width: 2px; height: 2px; border-radius: 50%; background: currentColor; opacity: 0.6; flex: none; }
-.cover-seal {
-  position: absolute; right: 24px; bottom: 22px; width: 24px; height: 24px; display: grid; place-items: center;
-  border: 1.5px solid var(--seal); border-radius: 3px; color: var(--seal); opacity: 0.82;
-  font: 600 13px/1 var(--font-serif); transform: rotate(-4deg); text-shadow: none;
-}
-html[data-skin="paper"] .cover-seal { opacity: 0.9; }
 
 /* 扭索纹：所有卡面都有，颜色随卡面 */
 .guilloche { position: absolute; inset: 0; z-index: -1; width: 100%; height: 100%; pointer-events: none; color: rgba(214, 186, 128, 0.07); }
 
 /* ---------- 卡号 + 持有人：像真卡一样放在左下 ---------- */
-.cover-foot { align-self: stretch; margin-top: 22px; text-align: left; }
-.cover-no { font: 500 15.5px/1 var(--font-latin); letter-spacing: 0.2em; font-variant-numeric: tabular-nums lining-nums; color: var(--ivory); white-space: nowrap; }
-.cover-no span + span { margin-left: 0.55em; }
-.cover-sub { display: flex; justify-content: flex-start; align-items: center; gap: 10px; padding-right: 40px; margin-top: 10px; font: 500 9.5px/1 var(--font-latin); letter-spacing: 0.26em; color: var(--ivory-3); }
-.cover-sub b { font: 500 11px/1 var(--font-latin); letter-spacing: 0.24em; color: var(--ivory-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-transform: uppercase; }
-.cover.min .goal-line + .cover-foot { margin-top: 18px; }
 
 /* 里程碑纪念卡：同一种暗金 */
 .ms-card { isolation: isolate; background: var(--mat-bg); color: var(--mat-ink); text-shadow: var(--mat-raise); box-shadow: 0 40px 80px -24px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 250, 240, 0.07), inset 0 0 0 1px rgba(255, 250, 240, 0.05); }
@@ -1470,51 +1454,85 @@ html[data-skin="paper"] .cover-seal { opacity: 0.9; }
 /* 翻牌在暗金卡上：牌子是嵌进金面的深古铜色，字是浅香槟金，和卡面同一套金色 */
 html[data-skin="jade"] .cover { --tile-a: #1f3a31; --tile-b: #16302a; --tile-c: #0f231d; --tile-d: #091712; }
 
-/* ================= 卡片组：左右滑动看更多 ================= */
-.deck { position: relative; margin: -6px -20px 0; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
-.deck.welcome { animation: cover-in 0.7s cubic-bezier(0.16, 1, 0.3, 1) backwards; }
-.deck-track {
-  display: flex; gap: 12px; overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory; scrollbar-width: none;
-  padding: 6px 20px 34px; margin-bottom: -28px; scroll-padding: 0 20px; overscroll-behavior-x: contain;
-}
-.deck-track::-webkit-scrollbar { display: none; }
-.deck-track > .cover {
-  flex: 0 0 100%; scroll-snap-align: center; scroll-snap-stop: always; margin-bottom: 0;
-  /* 按住下沉 + 陀螺仪微转：一直带着一个 3D 变换（不来回升降图层，避免闪） */
-  transform: perspective(1100px)
-    translateZ(calc(var(--press, 0) * -14px))
-    rotateX(calc(var(--py, 0) * var(--press, 0) * 5deg + var(--ty, 0) * var(--gyro, 0) * -3deg))
-    rotateY(calc(var(--px, 0) * var(--press, 0) * -6deg + var(--tx, 0) * var(--gyro, 0) * 4deg));
+/* ================= 立体卡片：鎏金包边、金色侧边厚度、轻点翻面 ================= */
+.card3d { position: relative; perspective: 1200px; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; cursor: pointer; }
+.card3d.welcome { animation: cover-in 0.7s cubic-bezier(0.16, 1, 0.3, 1) backwards; }
+.card-inner {
+  position: relative; transform-style: preserve-3d; -webkit-transform-style: preserve-3d;
+  transform:
+    translateZ(calc(var(--press, 0) * -16px))
+    rotateX(calc(var(--py, 0) * var(--press, 0) * 5deg + var(--ty, 0) * var(--gyro, 0) * -4deg))
+    rotateY(calc(var(--fy, 0deg) + var(--px, 0) * var(--press, 0) * -7deg + var(--tx, 0) * var(--gyro, 0) * 5deg));
   transition: transform 0.38s cubic-bezier(0.2, 0.9, 0.25, 1);
 }
-.deck-track > .cover.pressed { --press: 1; }
-html[data-tilt] .deck { --gyro: 1; }
-.deck-dots { display: flex; justify-content: center; gap: 6px; height: 6px; margin-top: 2px; }
-.deck-dots i { width: 5px; height: 5px; border-radius: 3px; background: var(--ink-3); opacity: 0.35; transition: width 0.3s cubic-bezier(0.2, 0.9, 0.25, 1), opacity 0.3s ease; }
-.deck-dots i.on { width: 16px; opacity: 0.8; }
-@media (prefers-reduced-motion: reduce) { .deck-track > .cover { transition: none; } }
+.card3d.pressed { --press: 1; }
+.card3d.flipped { --fy: 180deg; }
+.card3d.flipping .card-inner { transition: transform 0.85s cubic-bezier(0.3, 1.15, 0.4, 1); }
+html[data-tilt] .card3d { --gyro: 1; }
+.card-inner > .cover { -webkit-backface-visibility: hidden; backface-visibility: hidden; }
+html .card-inner > .cover.cover-back { position: absolute; inset: 0; margin: 0; padding: 0; transform: rotateY(180deg); display: flex; flex-direction: column; }
+/* 翻转时两面各往外推 3px，露出两条金色侧边——卡的厚度 */
+.card-side { display: none; position: absolute; top: 20px; bottom: 20px; width: 6px; background: linear-gradient(180deg, #5c4a26 0%, #d9bd85 22%, #8a6a33 50%, #e6cd96 78%, #4a3a1c 100%); }
+.card-side.l { left: -3px; transform: rotateY(-90deg); }
+.card-side.r { right: -3px; transform: rotateY(90deg); }
+.card3d.flipping .card-side { display: block; }
+.card3d.flipping .card-inner > .cover:not(.cover-back) { transform: translateZ(3px); }
+html .card3d.flipping .card-inner > .cover.cover-back { transform: rotateY(180deg) translateZ(3px); }
+@media (prefers-reduced-motion: reduce) { .card-inner, .card3d.flipping .card-inner { transition-duration: 0.01s; } }
 
-/* 后面几张的版式：标题居中，内容竖向居中 */
-.cover.face { display: flex; flex-direction: column; align-items: stretch; text-align: left; padding: 30px 24px 22px; }
-.cover.face .cover-label { justify-content: center; gap: 12px; font-size: 12px; letter-spacing: 0.5em; padding-left: 0.5em; }
-.cover.face .cover-label::before, .cover.face .cover-label::after { content: ""; width: 18px; height: 1px; border: 0; transform: none; background: var(--gold-soft); opacity: 0.45; flex: none; }
-.cover.face .cover-label::after { margin-left: -0.5em; }
-.fc-body { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 2px; padding-top: 10px; }
-.fc-row { display: grid; grid-template-columns: 1fr auto 64px; align-items: baseline; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--gold-line); }
-.fc-row .k { font-size: 12.5px; letter-spacing: 0.1em; color: var(--ivory-3); }
-.fc-row .v { font: 400 21px/1 var(--font-display); font-variant-numeric: lining-nums tabular-nums; color: var(--ivory); }
-.fc-row .d { text-align: right; font-size: 11.5px; color: var(--ivory-3); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.fc-foot { display: flex; justify-content: space-between; gap: 10px; margin-top: 12px; font-size: 11px; letter-spacing: 0.08em; color: var(--ivory-3); white-space: nowrap; }
+/* 正面：卡片比例，内容竖向居中，只放标题、大数字、一行小字 */
+.card3d .cover.min { aspect-ratio: 1.58; justify-content: center; padding: 26px 26px 24px; }
+.card3d .cover.min .hero { margin: 20px 0 16px; }
+.card3d .cover.min .hero.live { margin-bottom: 16px; }
+
+/* 鎏金包边：沿卡片外缘一圈细金线，上亮下暗；下沿再叠几层金色的边，像卡的厚度 */
+.cover-rim {
+  position: absolute; inset: 0; z-index: 3; pointer-events: none; border-radius: inherit; padding: 1px;
+  background: linear-gradient(160deg, #f0dcae 0%, #a8874a 22%, #5c4a26 45%, #b8975a 70%, #3a2e16 100%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  opacity: 0.85;
+}
+html[data-skin="ink"] .card3d .cover, html[data-skin="jade"] .card3d .cover {
+  box-shadow: 0 1px 0 #6e5628, 0 2px 0 #4f3d1b, 0 3px 0 #33270f, 0 22px 40px -20px rgba(0, 0, 0, 0.7), 0 6px 12px -6px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 244, 220, 0.06);
+}
+html[data-skin="paper"] .card3d .cover {
+  box-shadow: 0 1px 0 #b8975a, 0 2px 0 #8a6a33, 0 3px 0 #6b5428, 0 22px 40px -22px rgba(60, 46, 24, 0.5), 0 6px 12px -6px rgba(60, 46, 24, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+/* 内框细线也带一点金 */
+html:is([data-skin="ink"], [data-skin="jade"]) .card3d .cover::before { border-color: rgba(201, 168, 106, 0.28); }
+/* 标题两边的短线、¥ 用金色点一下，其余保持素净 */
+html:is([data-skin="ink"], [data-skin="jade"]) .card3d .cover-label::before, html:is([data-skin="ink"], [data-skin="jade"]) .card3d .cover-label::after { background: linear-gradient(90deg, #8a6a33, #d9bd85); opacity: 0.8; }
+html:is([data-skin="ink"], [data-skin="jade"]) .card3d .hero .cur { color: #c9a86a; -webkit-text-fill-color: #c9a86a; }
+
+/* 背面：几页横向滑动，底部小点 */
+.bk-track { flex: 1; min-height: 0; display: flex; overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory; scrollbar-width: none; overscroll-behavior-x: contain; touch-action: pan-x; }
+.bk-track::-webkit-scrollbar { display: none; }
+.bk-pg { flex: 0 0 100%; min-width: 0; scroll-snap-align: start; display: flex; flex-direction: column; padding: 20px 24px 0; }
+.bk-dots { display: flex; justify-content: center; gap: 5px; height: 5px; margin: 6px 0 14px; }
+.bk-dots i { width: 5px; height: 5px; border-radius: 3px; background: var(--ivory-3); opacity: 0.4; transition: width 0.3s cubic-bezier(0.2, 0.9, 0.25, 1), opacity 0.3s ease; }
+.bk-dots i.on { width: 14px; opacity: 0.9; }
+.bk-pg .cover-label { justify-content: center; gap: 12px; font-size: 11.5px; letter-spacing: 0.5em; padding-left: 0.5em; }
+.bk-pg .cover-label::before, .bk-pg .cover-label::after { content: ""; width: 16px; height: 1px; border: 0; transform: none; background: linear-gradient(90deg, #8a6a33, #d9bd85); opacity: 0.8; flex: none; }
+.bk-pg .cover-label::after { margin-left: -0.5em; }
+.fc-body { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 0; padding-top: 6px; }
+.fc-row { display: grid; grid-template-columns: 1fr auto 60px; align-items: baseline; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--gold-line); }
+.fc-row .k { font-size: 12px; letter-spacing: 0.1em; color: var(--ivory-3); }
+.fc-row .v { font: 400 19px/1 var(--font-display); font-variant-numeric: lining-nums tabular-nums; color: var(--ivory); }
+.fc-row .d { text-align: right; font-size: 11px; color: var(--ivory-3); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.fc-foot { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 9px; font-size: 11px; letter-spacing: 0.06em; color: var(--ivory-3); white-space: nowrap; }
 .fc-foot b { font-weight: 500; color: var(--ivory-2); }
-.cover.face .bk-alloc { margin: 0; gap: 22px; justify-content: center; }
-.cover.face .bk-ring { width: 92px; height: 92px; }
-.cover.face .bk-legend { flex: 0 1 auto; min-width: 120px; gap: 6px; font-size: 12px; }
-.cover.face .bk-goal { margin: 18px 0 0; }
-.fc-big { text-align: center; font: 400 40px/1 var(--font-display); font-variant-numeric: lining-nums tabular-nums; color: var(--ivory); }
-.fc-sub { margin-top: 10px; text-align: center; font-size: 12px; letter-spacing: 0.08em; color: var(--ivory-3); }
+.fc-link { display: inline-flex; align-items: center; gap: 2px; padding: 4px 0 4px 8px; border: 0; background: none; font: inherit; font-size: 11px; letter-spacing: 0.08em; color: #c9a86a; cursor: pointer; }
+.fc-link.center { align-self: center; margin-top: 12px; padding: 4px 8px; }
+.bk-pg .bk-alloc { margin: 0; gap: 20px; justify-content: center; }
+.bk-pg .bk-ring { width: 78px; height: 78px; }
+.bk-pg .bk-legend { flex: 0 1 auto; min-width: 118px; gap: 4px; font-size: 11.5px; }
+.bk-pg .bk-goal { margin: 12px 0 0; }
+.fc-big { text-align: center; font: 400 34px/1 var(--font-display); font-variant-numeric: lining-nums tabular-nums; color: var(--ivory); }
+.fc-sub { margin-top: 8px; text-align: center; font-size: 11.5px; letter-spacing: 0.08em; color: var(--ivory-3); }
 .fc-sub b { font-weight: 500; color: var(--ivory-2); }
-.fc-cats { display: flex; justify-content: center; flex-wrap: wrap; gap: 8px 16px; margin-top: 18px; font-size: 12px; color: var(--ivory-2); }
-.fc-cats > span { display: inline-flex; align-items: center; gap: 6px; }
+.fc-cats { display: flex; justify-content: center; flex-wrap: wrap; gap: 6px 14px; margin-top: 12px; font-size: 11.5px; color: var(--ivory-2); }
+.fc-cats > span { display: inline-flex; align-items: center; gap: 5px; }
 .fc-cats b { font-weight: 500; color: var(--ivory); font-variant-numeric: tabular-nums; }
 
 /* ================= 首页其余元素：和卡片同一种墨色材质 ================= */
@@ -1530,9 +1548,6 @@ html[data-tilt] .deck { --gyro: 1; }
 .cta { border-color: var(--hair); }
 
 /* ================= 卡片：等级徽记、构成小环 ================= */
-.cover-emblem { position: absolute; top: 22px; left: 24px; width: 9px; height: 9px; transform: rotate(45deg); border: 1px solid var(--gold-soft); opacity: 0.75; }
-.cover-emblem::after { content: ""; position: absolute; inset: 2px; background: var(--gold-soft); }
-.cover-tier { position: absolute; top: 19px; right: 22px; font: 600 9px/1 var(--font-latin); letter-spacing: 0.3em; color: var(--gold-soft); opacity: 0.9; }
 .bk-alloc { display: flex; align-items: center; gap: 16px; margin: 12px 22px 0; }
 .bk-ring { width: 66px; height: 66px; flex: none; }
 .bk-legend { flex: 1; min-width: 0; display: grid; gap: 3px; font-size: 10.5px; line-height: 1.25; color: var(--ivory-2); }

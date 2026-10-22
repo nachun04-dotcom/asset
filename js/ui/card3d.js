@@ -1,70 +1,86 @@
-// 首页卡片组：左右滑动看更多（净资产 → 变化 → 构成 → 开销），下面几个小点表示第几张。
-// 手指按住时，那一张朝按下的一侧微微下沉（有一点实体卡的分量）；打开「卡面光影」后，卡片随手机轻轻转动。
-// 转动全部由 CSS 变量驱动（--px/--py 按压位置，--tx/--ty 来自陀螺仪）。
+// 首页卡片：一张有厚度的墨色卡，鎏金包边。
+//  · 轻点正面，卡片绕竖轴翻到背面（翻到一半能看到金色的侧边）；背面左右滑动看「变化 / 构成 / 开销」，轻点翻回来；
+//  · 手指按住时，卡片朝按下的那一侧微微下沉；打开「卡面光影」后，卡片随手机轻轻转动。
+// 转动全部由 CSS 变量驱动（--px/--py 按压位置，--fy 翻面角度，--tx/--ty 来自陀螺仪）。
 import { h } from './dom.js';
-import { fx, soundOnly } from './feedback.js';
+import { fx, iosHaptic, soundOnly } from './feedback.js';
+import { guilloche } from './snapshotView.js';
 
 /**
- * @param {{ faces: HTMLElement[], page?: number, onTap?: (i: number) => void, onPage?: (i: number) => void }} o
+ * @param {{ front: HTMLElement, pages: HTMLElement[], flipped?: boolean, page?: number, onFlip?: (on: boolean) => void, onPage?: (i: number) => void }} o
  */
-export function cardDeck({ faces, page = 0, onTap, onPage }) {
-  const track = h('div', { class: 'deck-track' }, ...faces);
-  const dots = faces.map((_, i) => h('i', { class: i === page ? 'on' : '' }));
-  const el = h('div', { class: 'deck' }, track, faces.length > 1 ? h('div', { class: 'deck-dots', 'aria-hidden': 'true' }, ...dots) : null);
-  let cur = page;
+export function card3d({ front, pages, flipped = false, page = 0, onFlip, onPage }) {
+  // 背面：几页内容横向排开，左右滑动切换，底部小点表示第几页
+  const track = h('div', { class: 'bk-track' }, ...pages);
+  const dots = pages.map((_, i) => h('i', { class: i === page ? 'on' : '' }));
+  const back = h('section', { class: 'cover cover-back', 'aria-label': '卡片背面', 'aria-hidden': String(!flipped) }, guilloche(), track, pages.length > 1 ? h('div', { class: 'bk-dots', 'aria-hidden': 'true' }, ...dots) : null, h('span', { class: 'cover-rim', 'aria-hidden': 'true' }));
+  front.setAttribute('aria-hidden', String(flipped));
+  // 两条金色侧边：翻到一半时看到卡的厚度
+  const inner = h('div', { class: 'card-inner' }, front, back, h('i', { class: 'card-side l', 'aria-hidden': 'true' }), h('i', { class: 'card-side r', 'aria-hidden': 'true' }));
+  const el = h('div', { class: ['card3d', flipped && 'flipped'] }, inner);
 
-  const step = () => (faces.length > 1 ? faces[1].offsetLeft - faces[0].offsetLeft : track.clientWidth) || 1;
+  let cur = page;
   track.addEventListener(
     'scroll',
     () => {
-      const i = Math.max(0, Math.min(faces.length - 1, Math.round(track.scrollLeft / step())));
+      const i = Math.max(0, Math.min(pages.length - 1, Math.round(track.scrollLeft / Math.max(1, track.clientWidth))));
       if (i === cur) return;
       cur = i;
       dots.forEach((d, j) => d.classList.toggle('on', j === i));
-      faces.forEach((f, j) => f.setAttribute('aria-hidden', String(j !== i)));
       soundOnly(() => fx.step());
       onPage?.(i);
     },
     { passive: true },
   );
 
-  // 按住：朝手指那一侧微微下沉；一滑动就松开（是在翻页或滚动页面）
-  let pressed = null;
+  function flip() {
+    const on = !el.classList.contains('flipped');
+    el.classList.add('flipping');
+    el.classList.toggle('flipped', on);
+    back.setAttribute('aria-hidden', String(!on));
+    front.setAttribute('aria-hidden', String(on));
+    soundOnly(() => fx.flip());
+    iosHaptic();
+    clearTimeout(flip.t);
+    clearTimeout(flip.l);
+    flip.l = setTimeout(() => soundOnly(() => fx.land()), 520);
+    flip.t = setTimeout(() => el.classList.remove('flipping'), 860);
+    onFlip?.(on);
+  }
+
+  // 按住：朝手指那一侧微微下沉；一滑动就松开（在滚页面或翻背面的页）
   let start = null;
-  const release = () => {
-    pressed?.classList.remove('pressed');
-    pressed = null;
-  };
-  track.addEventListener('pointerdown', (e) => {
-    const face = e.target.closest('.cover');
-    if (!face || e.button > 0 || e.target.closest('button')) return;
-    const r = face.getBoundingClientRect();
-    face.style.setProperty('--px', (((e.clientX - r.left) / r.width) * 2 - 1).toFixed(3));
-    face.style.setProperty('--py', (((e.clientY - r.top) / r.height) * 2 - 1).toFixed(3));
-    face.classList.add('pressed');
-    pressed = face;
+  const release = () => el.classList.remove('pressed');
+  el.addEventListener('pointerdown', (e) => {
+    if (e.button > 0 || e.target.closest('button')) return;
+    const r = el.getBoundingClientRect();
+    el.style.setProperty('--px', (((e.clientX - r.left) / r.width) * 2 - 1).toFixed(3));
+    el.style.setProperty('--py', (((e.clientY - r.top) / r.height) * 2 - 1).toFixed(3));
+    el.classList.add('pressed');
     start = { x: e.clientX, y: e.clientY };
     soundOnly(() => fx.press());
   });
-  track.addEventListener('pointermove', (e) => {
+  el.addEventListener('pointermove', (e) => {
     if (start && Math.hypot(e.clientX - start.x, e.clientY - start.y) > 8) {
       start = null;
       release();
     }
   });
-  for (const t of ['pointerup', 'pointercancel', 'pointerleave']) track.addEventListener(t, release);
-  track.addEventListener('click', (e) => {
-    const face = e.target.closest('.cover');
-    if (!face || e.target.closest('button')) return;
-    onTap?.(faces.indexOf(face));
+  for (const t of ['pointerup', 'pointercancel', 'pointerleave']) el.addEventListener(t, release);
+  el.addEventListener('contextmenu', (e) => e.preventDefault());
+  // 轻点（没有滑动）就翻面；点到卡上的按钮（实时估算、目标、查看明细）不翻
+  el.addEventListener('click', (e) => {
+    if (e.target.closest('button')) return;
+    flip();
   });
 
   return {
     el,
-    /** 跳到第 i 张（数据刷新重画后回到原来那张）。 */
-    setPage(i, smooth = false) {
+    flip,
+    /** 背面回到第 i 页（数据刷新重画后保持）。 */
+    setPage(i) {
       cur = i;
-      track.scrollTo({ left: i * step(), behavior: smooth ? 'smooth' : 'instant' });
+      track.scrollTo({ left: i * track.clientWidth, behavior: 'instant' });
       dots.forEach((d, j) => d.classList.toggle('on', j === i));
     },
   };

@@ -35,25 +35,12 @@ export const DEFAULT_SETTINGS = Object.freeze({
   holderName: '', // 卡面上的持有人名字（可留空）
   tilt: false, // 卡面光影：倾斜手机时反光跟着动（iPhone 需授权）
   splash: true, // 开屏动画
-  liveStyle: 'glow', // 实时增长的风格：'glow' 流光 | 'flip' 翻牌 | 'roll' 滚轮
+  liveStyle: 'roll', // 实时增长的风格：'roll' 滚轮（默认）| 'glow' 流光 | 'flip' 翻牌
+  liveV: 2, // 实时增长风格设置的版本（换默认风格时用）
 });
 
 /** 卡面：墨（默认）/ 素 / 黛。旧版的鎏金、黑金、香槟都并入墨。 */
 export const skinOf = (settings) => (settings.coverSkin === 'paper' || settings.coverSkin === 'jade' ? settings.coverSkin : 'ink');
-
-/**
- * 卡面上的卡号（16 位，四位一组）。用户在设置里填过就用填的；
- * 否则按第一条记录生成一个固定的号码：8888 · 年份 · 月日 · 由记录编号算出的四位校验。
- */
-export function cardNumberOf(settings, snapshots = []) {
-  const own = String(settings.cardNo ?? '').replace(/\D/g, '');
-  if (own.length === 16) return own.match(/.{4}/g);
-  const first = [...snapshots].sort((a, b) => (a.date < b.date ? -1 : 1))[0];
-  const d = (first?.date ?? '2026-01-01').replace(/-/g, '');
-  let hsh = 7;
-  for (const c of String(first?.id ?? d)) hsh = (hsh * 31 + c.charCodeAt(0)) % 10000;
-  return ['8888', d.slice(0, 4), d.slice(4, 8), String(hsh).padStart(4, '0')];
-}
 
 export const SOURCE_LABELS = Object.freeze({
   manual: '手动录入',

@@ -1,18 +1,18 @@
 // 首页：封面（最近一次完整快照的总资产）→ 阶段变化 → 更新余额 → 账户明细。图表都在「分析」页。
 import { h, icon, s } from '../dom.js';
 import { button, emptyState, noteBox, openSheet, seg, toast } from '../components.js';
-import { accountRows, coverCard, guilloche } from '../snapshotView.js';
+import { accountRows, coverCard } from '../snapshotView.js';
 import { animateHero, catCss, compactYuan, fitHero, splashDelay } from '../fmt.js';
 import { LIVE_STYLES, liveHero, liveStyleOf } from '../liveNumber.js';
 import { openReport, reportNudge } from '../report.js';
-import { nextMilestone, milestoneName, tierOf } from '../../core/milestones.js';
+import { nextMilestone, milestoneName } from '../../core/milestones.js';
 import { goalLine, periodStats } from '../insights.js';
-import { cardDeck } from '../card3d.js';
+import { card3d } from '../card3d.js';
 import { spendChip } from '../spend.js';
 import { spendCat, summarize } from '../../core/spending.js';
 import { compareSnapshots, findByDate, growthRate, latestComplete, latestOverall, missingIds, previousCompleteOf, recordedTotal, shares } from '../../core/ledger.js';
 import { checkSnapshot } from '../../core/anomalies.js';
-import { cardNumberOf, isDebt, splitTotals } from '../../core/model.js';
+import { isDebt, splitTotals } from '../../core/model.js';
 import { formatMoney, formatPercent, formatSigned } from '../../core/money.js';
 import { dayDiff, formatDateZh, relativeDaysZh, todayISO } from '../../core/date.js';
 
@@ -31,11 +31,11 @@ export function backupNote(store, ctx) {
 }
 
 /**
- * 卡片组里正面之后的几张：变化、构成、开销。和正面同一种卡面，居中一个小标题，内容只放要紧的几个数。
+ * 卡片背面的几页：变化、构成、开销。居中一个小标题，内容只放要紧的几个数；左右滑动切换。
  */
-function deckFaces(store, comp, sp, settings) {
+function backPages(store, comp, sp, settings, nav) {
   const { snapshots, categories, expenses } = store.state;
-  const face = (title, ...body) => h('section', { class: 'cover face', 'aria-label': title }, guilloche(), h('div', { class: 'cover-label' }, title), h('div', { class: 'fc-body' }, ...body));
+  const face = (title, ...body) => h('div', { class: 'bk-pg', 'aria-label': title }, h('div', { class: 'cover-label' }, title), h('div', { class: 'fc-body' }, ...body));
   const out = [];
 
   // 变化：较上月末 / 今年以来 / 历史最高
@@ -52,7 +52,7 @@ function deckFaces(store, comp, sp, settings) {
         row('较上月末', st.month ? signed(st.month.delta) : '—', st.month ? formatPercent(st.month.ratio) : '上月无记录', st.month ? `chg ${dir(st.month.delta)}` : ''),
         row(st.yLabel, st.year ? signed(st.year.delta) : '—', st.year ? formatPercent(st.year.ratio) : '暂无比较', st.year ? `chg ${dir(st.year.delta)}` : ''),
         row('历史最高', compactYuan(st.peak.fen), st.isPeak ? '当前即新高' : `回撤 ${formatPercent(st.drawdown)}`),
-        h('div', { class: 'fc-foot' }, sp.hasDebt ? h('span', {}, '资产 ', h('b', { class: 'mask' }, compactYuan(sp.assets)), ' · 负债 ', h('b', { class: 'mask' }, compactYuan(sp.debts))) : h('span', {}, `${categories.filter((c) => c.enabled).length} 个账户`), h('span', {}, `记账第 ${days} 天`)),
+        h('div', { class: 'fc-foot' }, sp.hasDebt ? h('span', {}, '资产 ', h('b', { class: 'mask' }, compactYuan(sp.assets)), ' · 负债 ', h('b', { class: 'mask' }, compactYuan(sp.debts))) : h('span', {}, `记账第 ${days} 天`), h('button', { type: 'button', class: 'fc-link', onClick: () => nav.openDetail(comp.id) }, '这条记录', icon('chevronR', { size: 12, stroke: 2 }))),
       ),
     );
   }
@@ -101,6 +101,7 @@ function deckFaces(store, comp, sp, settings) {
         h('div', { class: 'fc-big mask' }, formatMoney(m.total, 'yuan')),
         h('div', { class: 'fc-sub' }, `本月 ${m.count} 笔 · 今天 `, h('b', { class: 'mask' }, formatMoney(td, 'yuan'))),
         h('div', { class: 'fc-cats' }, ...m.cats.slice(0, 3).map((c) => h('span', {}, spendChip(c.key, 22), spendCat(c.key).name, h('b', { class: 'mask' }, compactYuan(c.fen))))),
+        h('button', { type: 'button', class: 'fc-link center', onClick: () => nav.goto('spend') }, '查看开销', icon('chevronR', { size: 12, stroke: 2 })),
       ),
     );
   }
@@ -150,7 +151,8 @@ export function buildHome(ctx) {
   const { store, nav } = ctx;
   const root = h('div', {});
   let welcomed = false; // 每次进入首页，总额只播一次欢迎动画；之后数据刷新直接显示
-  let page = 0; // 卡片组停在第几张（数据刷新重画后保持）
+  let flipped = false; // 卡片翻在哪一面、背面停在第几页（数据刷新重画后保持）
+  let page = 0;
   let deck = null;
 
   const draw = () => {
@@ -211,19 +213,16 @@ export function buildHome(ctx) {
           fen: recordedTotal(comp),
           unit,
           bar: goalLine(store, recordedTotal(comp)),
-          tier: tierOf(recordedTotal(comp)),
-          card: { no: cardNumberOf(settings, snapshots), name: settings.holderName, since: [...snapshots].sort((a, b) => (a.date < b.date ? -1 : 1))[0].date.slice(0, 4) },
           ariaLabel: '最近一次完整资产快照',
         });
-      // 卡片组：正面是净资产（轻点看这条记录的明细），往左滑依次是变化、构成、开销
-      cover.classList.add('tappable');
-      const faces = [cover, ...deckFaces(store, comp, sp, settings)];
-      const card = cardDeck({
-        faces,
+      // 立体卡片：轻点翻面；背面左右滑动看变化、构成、开销
+      const card = card3d({
+        front: cover,
+        pages: backPages(store, comp, sp, settings, nav),
+        flipped,
         page,
-        onTap: (i) => {
-          if (i === 0) nav.openDetail(comp.id);
-          else if (faces[i].getAttribute('aria-label') === '开 销') nav.goto('spend');
+        onFlip: (on) => {
+          flipped = on;
         },
         onPage: (i) => {
           page = i;
