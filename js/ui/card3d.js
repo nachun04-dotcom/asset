@@ -14,7 +14,8 @@ const HOLD_MS = 460;
 export function card3d({ front, back, flipped = false, onTap, onFlip }) {
   back.classList.add('cover-back');
   back.setAttribute('aria-hidden', String(!flipped));
-  const inner = h('div', { class: 'card-inner' }, front, back);
+  // 两条侧边：翻到一半时能看到卡的厚度
+  const inner = h('div', { class: 'card-inner' }, front, back, h('i', { class: 'card-side l', 'aria-hidden': 'true' }), h('i', { class: 'card-side r', 'aria-hidden': 'true' }));
   const el = h('div', { class: ['card3d', flipped && 'flipped'] }, inner);
 
   let hold = null;
@@ -37,8 +38,10 @@ export function card3d({ front, back, flipped = false, onTap, onFlip }) {
     el.classList.toggle('flipped', on);
     back.setAttribute('aria-hidden', String(!on));
     front.setAttribute('aria-hidden', String(on));
-    soundOnly(() => fx.pick());
+    soundOnly(() => fx.flip());
     clearTimeout(flip.t);
+    clearTimeout(flip.l);
+    flip.l = setTimeout(() => soundOnly(() => fx.land()), 560); // 翻过来落定的那一下
     flip.t = setTimeout(() => el.classList.remove('flipping'), 820);
     onFlip?.(on);
   }
@@ -49,6 +52,7 @@ export function card3d({ front, back, flipped = false, onTap, onFlip }) {
     start = { x: e.clientX, y: e.clientY };
     aim(e);
     el.classList.add('pressed');
+    soundOnly(() => fx.press());
     hold = setTimeout(() => {
       longed = true;
       el.classList.remove('pressed');

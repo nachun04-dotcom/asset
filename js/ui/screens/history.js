@@ -1,5 +1,5 @@
 // 历史记录：按月分组，点开看详情。
-import { h } from '../dom.js';
+import { h, icon } from '../dom.js';
 import { button, emptyState, seg, stamp } from '../components.js';
 import { compactYuan, deltaSpan } from '../fmt.js';
 import { monthEnds } from '../insights.js';
@@ -17,7 +17,7 @@ export function buildHistory(ctx) {
   const draw = () => {
     const { snapshots, categories, settings } = store.state;
     const unit = settings.unit;
-    const frag = [h('div', { class: 'screen-head' }, h('h1', { class: 'screen-title' }, '历史记录'), h('span', { class: 'muted small' }, `${snapshots.length} 条`))];
+    const frag = [h('button', { type: 'button', class: 'back-link', onClick: () => nav.goto('analysis') }, icon('chevronL', { size: 18 }), '分析'), h('div', { class: 'screen-head' }, h('h1', { class: 'screen-title' }, '历史记录'), h('span', { class: 'muted small' }, `${snapshots.length} 条`))];
     if (!snapshots.length) {
       frag.push(emptyState({ glyph: 'ledger', title: '还没有历史记录', text: '记下第一笔，或者导入以前的记录，就会按日期出现在这里。', actions: [button('记一笔', () => nav.openEntry({}), { iconName: 'plus', block: true }), button('导入记录', () => nav.goto('import'), { kind: 'secondary', block: true })] }));
       root.replaceChildren(...frag);

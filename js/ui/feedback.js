@@ -230,6 +230,21 @@ export const fx = {
     tone(330, { dur: 0.08, gain: 0.05, type: 'triangle' });
     tone(294, { dur: 0.1, gain: 0.05, type: 'triangle', at: 0.11 });
   },
+  /** 卡片：按下（轻）/ 翻转（中）/ 落定（重）。安卓上三种震动强度不同；iPhone 只能在抬手时给一下。 */
+  press() {
+    buzz(4);
+    if (gate('press', 60)) click(0, { gain: 0.02, freq: 1800, dur: 0.012 });
+  },
+  flip() {
+    buzz(12);
+    tone(420, { dur: 0.32, gain: 0.03, to: 980, type: 'triangle', attack: 0.04 });
+    click(0.05, { gain: 0.018, freq: 5200, dur: 0.12 });
+  },
+  land() {
+    buzz([18, 30, 8]);
+    tone(196, { dur: 0.16, gain: 0.06, to: 120, type: 'triangle' });
+    click(0, { gain: 0.035, freq: 900, dur: 0.03 });
+  },
   /** 拖动排序：拿起 / 经过一格 / 放下。 */
   pick() {
     buzz(14);

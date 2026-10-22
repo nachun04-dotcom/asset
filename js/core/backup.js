@@ -2,6 +2,7 @@
 // 恢复时会严格校验每一条数据；校验失败就拒绝恢复，绝不写入半截数据。
 
 import { APP_FORMAT, DEFAULT_SETTINGS, SCHEMA_VERSION, isIconKey, normalizeGroups } from './model.js';
+import { cleanExpense } from './spending.js';
 import { hasValue, isComplete } from './ledger.js';
 import { isISODate } from './date.js';
 
@@ -43,9 +44,9 @@ export async function sha256Hex(text) {
 }
 
 /** 备份内容。设备锁凭据只属于这台设备，不进备份。 */
-export function buildPayload({ categories, settings, snapshots }) {
+export function buildPayload({ categories, settings, snapshots, expenses = [] }) {
   const { lockEnabled, lockAfterSec, ...portable } = settings;
-  return { schemaVersion: SCHEMA_VERSION, categories, settings: portable, snapshots };
+  return { schemaVersion: SCHEMA_VERSION, categories, settings: portable, snapshots, expenses };
 }
 
 async function deriveKey(password, salt, iterations, usage) {
@@ -204,8 +205,17 @@ export function validatePayload(p) {
       complete: isComplete(entries, expectedIds), // 不信任文件里的 complete，按数据重新计算
     });
   }
+  // 日常开销（旧备份里没有这一项，就是空的）。单笔不合格的直接跳过，不影响资产记录的恢复
+  const expenses = [];
+  const eids = new Set();
+  for (const e of Array.isArray(p.expenses) ? p.expenses : []) {
+    const c = cleanExpense(e);
+    if (!c || eids.has(c.id)) continue;
+    eids.add(c.id);
+    expenses.push(c);
+  }
   if (errors.length) return { ok: false, errors };
   snapshots.sort((a, b) => (a.date < b.date ? -1 : 1));
-  const summary = { snapshots: snapshots.length, categories: categories.length, from: snapshots[0]?.date ?? null, to: snapshots[snapshots.length - 1]?.date ?? null, values: snapshots.reduce((n, x) => n + Object.values(x.entries).filter(hasValue).length, 0) };
-  return { ok: true, errors, payload: { schemaVersion: p.schemaVersion, categories, settings, snapshots }, summary };
+  const summary = { snapshots: snapshots.length, expenses: expenses.length, categories: categories.length, from: snapshots[0]?.date ?? null, to: snapshots[snapshots.length - 1]?.date ?? null, values: snapshots.reduce((n, x) => n + Object.values(x.entries).filter(hasValue).length, 0) };
+  return { ok: true, errors, payload: { schemaVersion: p.schemaVersion, categories, settings, snapshots, expenses }, summary };
 }

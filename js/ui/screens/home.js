@@ -1,13 +1,14 @@
 // 首页：封面（最近一次完整快照的总资产）→ 阶段变化 → 更新余额 → 账户明细。图表都在「分析」页。
-import { h, icon } from '../dom.js';
+import { h, icon, s } from '../dom.js';
 import { button, emptyState, noteBox, openSheet, seg, toast } from '../components.js';
 import { accountRows, coverCard, guilloche } from '../snapshotView.js';
-import { animateHero, compactYuan, fitHero, splashDelay } from '../fmt.js';
+import { animateHero, catCss, compactYuan, fitHero, splashDelay } from '../fmt.js';
 import { LIVE_STYLES, liveHero, liveStyleOf } from '../liveNumber.js';
 import { openReport, reportNudge } from '../report.js';
+import { nextMilestone, milestoneName, tierOf } from '../../core/milestones.js';
 import { goalLine, periodStats } from '../insights.js';
 import { card3d } from '../card3d.js';
-import { compareSnapshots, findByDate, growthRate, latestComplete, latestOverall, missingIds, previousCompleteOf, recordedTotal } from '../../core/ledger.js';
+import { compareSnapshots, findByDate, growthRate, latestComplete, latestOverall, missingIds, previousCompleteOf, recordedTotal, shares } from '../../core/ledger.js';
 import { checkSnapshot } from '../../core/anomalies.js';
 import { cardNumberOf, isDebt, splitTotals } from '../../core/model.js';
 import { formatMoney, formatPercent, formatSigned } from '../../core/money.js';
@@ -44,7 +45,14 @@ function cardBack(store, comp, sp, settings) {
     { class: 'cover', 'aria-label': '卡片背面：阶段变化和资产构成' },
     guilloche(),
     h('div', { class: 'bk-stripe', 'aria-hidden': 'true' }),
-    h(
+    pager([page1(), page2()]),
+  );
+
+  function page1() {
+    return h(
+      'div',
+      { class: 'bk-page' },
+      h(
       'div',
       { class: 'bk-grid' },
       cell('较上月末', chg(st?.month), st?.month ? formatPercent(st.month.ratio) : '上月无记录'),
@@ -59,8 +67,53 @@ function cardBack(store, comp, sp, settings) {
       h('span', {}, `记账第 ${days} 天`),
     ),
     h('div', { class: 'bk-sign' }, h('span', { class: 'sig' }, settings.holderName || '资产账本'), h('span', { class: 'cvv' }, `${snapshots.length} 次记录`)),
-    h('div', { class: 'bk-foot' }, '轻点翻回正面'),
-  );
+    );
+  }
+
+  // 第二页：资产构成小环 + 目标（没设目标就看下一个里程碑）
+  function page2() {
+    const byId = new Map(categories.map((c) => [c.id, c]));
+    const parts = shares(comp).map((x) => ({ ...x, cat: byId.get(x.id) })).filter((x) => x.cat && !isDebt(x.cat)).sort((a, b) => b.share - a.share);
+    const top = parts.slice(0, 4);
+    const rest = parts.slice(4).reduce((n, x) => n + x.share, 0);
+    const R0 = 30;
+    const C = 2 * Math.PI * R0;
+    let off = 0;
+    const segs = [...top.map((x) => ({ share: x.share, color: catCss(x.cat) })), ...(rest > 0 ? [{ share: rest, color: 'rgba(242,223,174,0.35)' }] : [])].map((x) => {
+      const len = Math.max(0, x.share * C - 1.5);
+      const el = s('circle', { cx: 40, cy: 40, r: R0, fill: 'none', stroke: x.color, 'stroke-width': 9, 'stroke-dasharray': `${len} ${C - len}`, 'stroke-dashoffset': -off, transform: 'rotate(-90 40 40)' });
+      off += x.share * C;
+      return el;
+    });
+    const ring = s('svg', { viewBox: '0 0 80 80', class: 'bk-ring', 'aria-hidden': 'true' }, s('circle', { cx: 40, cy: 40, r: R0, fill: 'none', stroke: 'rgba(0,0,0,0.25)', 'stroke-width': 9 }), ...segs);
+    const legend = h('div', { class: 'bk-legend' }, ...top.map((x) => h('div', {}, h('i', { style: `background:${catCss(x.cat)}` }), h('span', {}, x.cat.name), h('b', {}, `${(x.share * 100).toFixed(0)}%`))), rest > 0 ? h('div', {}, h('i', { style: 'background:rgba(242,223,174,0.35)' }), h('span', {}, '其他'), h('b', {}, `${(rest * 100).toFixed(0)}%`)) : null);
+    const total = recordedTotal(comp);
+    let target = null;
+    if (settings.goalFen) target = { name: `目标 ${compactYuan(settings.goalFen)}`, p: total / settings.goalFen };
+    else {
+      const nx = nextMilestone(snapshots);
+      if (nx) target = { name: `下一站 ${milestoneName(nx.fen)}`, p: nx.progress, gap: nx.gap };
+    }
+    return h(
+      'div',
+      { class: 'bk-page' },
+      h('div', { class: 'bk-alloc' }, ring, legend),
+      target
+        ? h('div', { class: 'bk-goal' }, h('div', { class: 'bk-goal-row' }, h('span', {}, target.name), h('b', {}, target.p >= 1 ? '已达成' : `${Math.min(99.9, target.p * 100).toFixed(1)}%`)), h('div', { class: 'goal-track' }, h('i', { style: `width:${Math.max(2, Math.min(100, target.p * 100)).toFixed(1)}%` })))
+        : null,
+    );
+  }
+}
+
+/** 背面的两页：左右滑动切换，下面两个小点表示在第几页。 */
+function pager(pages) {
+  const track = h('div', { class: 'bk-pages' }, ...pages);
+  const dots = pages.map((_, i) => h('i', { class: i === 0 ? 'on' : '' }));
+  track.addEventListener('scroll', () => {
+    const i = Math.round(track.scrollLeft / Math.max(1, track.clientWidth));
+    dots.forEach((d, j) => d.classList.toggle('on', i === j));
+  }, { passive: true });
+  return [track, h('div', { class: 'bk-foot' }, h('span', { class: 'bk-dots' }, ...dots), h('span', {}, '左右滑动 · 轻点翻回'))];
 }
 
 /** 实时估算的小面板：选风格，或者关掉。 */
@@ -166,6 +219,7 @@ export function buildHome(ctx) {
           fen: recordedTotal(comp),
           unit,
           bar: goalLine(store, recordedTotal(comp)),
+          tier: tierOf(recordedTotal(comp)),
           card: { no: cardNumberOf(settings, snapshots), name: settings.holderName, since: [...snapshots].sort((a, b) => (a.date < b.date ? -1 : 1))[0].date.slice(0, 4) },
           ariaLabel: '最近一次完整资产快照',
         });
@@ -243,6 +297,25 @@ export function buildHome(ctx) {
     }
     const bn = backupNote(store, ctx);
     if (bn) frag.push(bn);
+    // 日常开销：今天和本月各花了多少，点进开销页
+    if (store.state.expenses.length) {
+      const ym = today.slice(0, 7);
+      let td = 0;
+      let mo = 0;
+      for (const e of store.state.expenses) {
+        if (e.date === today) td += e.fen;
+        if (e.date.startsWith(ym)) mo += e.fen;
+      }
+      frag.push(
+        h(
+          'button',
+          { type: 'button', class: 'nudge spend-line', onClick: () => nav.goto('spend') },
+          icon('receipt', { size: 18 }),
+          h('span', { class: 'grow' }, '今天 ', h('b', { class: 'mask' }, formatMoney(td, 'yuan')), h('i', { 'aria-hidden': 'true' }), '本月 ', h('b', { class: 'mask' }, formatMoney(mo, 'yuan'))),
+          icon('chevronR', { size: 16 }),
+        ),
+      );
+    }
     const rn = reportNudge(store, (o) => openReport(store, o));
     if (rn) frag.push(rn);
 

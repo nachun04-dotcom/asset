@@ -4,6 +4,7 @@ import { finalizeSnapshot, findByDate, hasValue } from '../core/ledger.js';
 import { checkSnapshot } from '../core/anomalies.js';
 import { isISODate } from '../core/date.js';
 import { buildPayload } from '../core/backup.js';
+import { cleanExpense, spendId } from '../core/spending.js';
 
 const fail = (code, message, extra = {}) => ({ ok: false, code, message, ...extra });
 
@@ -13,6 +14,7 @@ export function createStore(repo, env = {}) {
   let state = {
     ready: false,
     snapshots: [],
+    expenses: [], // 日常开销 { id, date, time, fen, cat, note, createdAt }
     categories: [],
     settings: { ...DEFAULT_SETTINGS },
     meta: { lastBackupAt: null, lockCredential: null, persisted: null, preRestore: null },
@@ -57,7 +59,8 @@ export function createStore(repo, env = {}) {
         categories = fixed;
         await repo.setKV('categories', categories).catch(() => {});
       }
-      set({ ready: true, snapshots, categories, settings, meta, locked: !!(settings.lockEnabled && meta.lockCredential) });
+      const expenses = (Array.isArray(kv.expenses) ? kv.expenses : []).map(cleanExpense).filter(Boolean);
+      set({ ready: true, snapshots, expenses, categories, settings, meta, locked: !!(settings.lockEnabled && meta.lockCredential) });
       return state;
     },
 
@@ -285,8 +288,51 @@ export function createStore(repo, env = {}) {
 
     /* ------------------------------ 备份 / 恢复 ------------------------------ */
 
+    /* ------------------------------ 日常开销 ------------------------------ */
+
+    async saveExpenses(next) {
+      try {
+        await repo.setKV('expenses', next);
+      } catch (e) {
+        return fail('STORAGE', `保存失败：${e.message}`);
+      }
+      set({ expenses: next });
+      return { ok: true };
+    },
+
+    /** 记下一笔或几笔开销（一句话里拆出来的几笔一起存）。 */
+    async addExpenses(items) {
+      const now = nowIso();
+      const added = items.map((x) => cleanExpense({ ...x, id: spendId(), createdAt: now })).filter(Boolean);
+      if (!added.length) return fail('EMPTY', '没有可以记下的金额');
+      const r = await store.saveExpenses([...state.expenses, ...added]);
+      return r.ok ? { ok: true, added } : r;
+    },
+
+    async updateExpense(id, patch) {
+      const old = state.expenses.find((e) => e.id === id);
+      if (!old) return fail('NOT_FOUND', '这笔开销不存在');
+      const next = cleanExpense({ ...old, ...patch, id });
+      if (!next) return fail('BAD', '金额或日期无效');
+      return store.saveExpenses(state.expenses.map((e) => (e.id === id ? next : e)));
+    },
+
+    async deleteExpenses(ids) {
+      const gone = state.expenses.filter((e) => ids.includes(e.id));
+      const r = await store.saveExpenses(state.expenses.filter((e) => !ids.includes(e.id)));
+      if (r.ok) state = { ...state, lastDeletedExpenses: gone };
+      return r;
+    },
+
+    async undoDeleteExpenses() {
+      const gone = state.lastDeletedExpenses ?? [];
+      if (!gone.length) return fail('NOTHING', '没有可撤销的删除');
+      state = { ...state, lastDeletedExpenses: [] };
+      return store.saveExpenses([...state.expenses, ...gone]);
+    },
+
     getBackupPayload() {
-      return buildPayload({ categories: sortedCategories(state.categories), settings: state.settings, snapshots: [...state.snapshots].sort((a, b) => (a.date < b.date ? -1 : 1)) });
+      return buildPayload({ categories: sortedCategories(state.categories), settings: state.settings, snapshots: [...state.snapshots].sort((a, b) => (a.date < b.date ? -1 : 1)), expenses: state.expenses });
     },
 
     /** 用备份整体替换当前数据。恢复前自动保存一份当前数据的安全副本，可撤销。 */
@@ -296,12 +342,12 @@ export function createStore(repo, env = {}) {
       try {
         await repo.replaceAll({
           snapshots: payload.snapshots,
-          kv: { categories: payload.categories, settings, preRestore: safety },
+          kv: { categories: payload.categories, settings, preRestore: safety, expenses: payload.expenses ?? [] },
         });
       } catch (e) {
         return fail('STORAGE', `恢复失败，当前数据没有改动：${e.message}`);
       }
-      set({ snapshots: payload.snapshots, categories: payload.categories, settings, meta: { ...state.meta, preRestore: safety }, lastDeleted: null });
+      set({ snapshots: payload.snapshots, expenses: payload.expenses ?? [], categories: payload.categories, settings, meta: { ...state.meta, preRestore: safety }, lastDeleted: null });
       return { ok: true, count: payload.snapshots.length };
     },
 
@@ -311,12 +357,12 @@ export function createStore(repo, env = {}) {
       const p = safety.payload;
       const settings = { ...DEFAULT_SETTINGS, ...p.settings, lockEnabled: state.settings.lockEnabled, lockAfterSec: state.settings.lockAfterSec };
       try {
-        await repo.replaceAll({ snapshots: p.snapshots, kv: { categories: p.categories, settings } });
+        await repo.replaceAll({ snapshots: p.snapshots, kv: { categories: p.categories, settings, expenses: p.expenses ?? [] } });
         await repo.deleteKV('preRestore');
       } catch (e) {
         return fail('STORAGE', `撤销失败：${e.message}`);
       }
-      set({ snapshots: p.snapshots, categories: p.categories, settings, meta: { ...state.meta, preRestore: null } });
+      set({ snapshots: p.snapshots, expenses: p.expenses ?? [], categories: p.categories, settings, meta: { ...state.meta, preRestore: null } });
       return { ok: true };
     },
 
@@ -328,7 +374,7 @@ export function createStore(repo, env = {}) {
       }
       const categories = DEFAULT_CATEGORIES.map((c) => ({ ...c }));
       await repo.setKV('categories', categories);
-      set({ snapshots: [], categories, settings: { ...DEFAULT_SETTINGS }, meta: { lastBackupAt: null, lockCredential: null, persisted: state.meta.persisted, preRestore: null }, locked: false, lastDeleted: null });
+      set({ snapshots: [], expenses: [], categories, settings: { ...DEFAULT_SETTINGS }, meta: { lastBackupAt: null, lockCredential: null, persisted: state.meta.persisted, preRestore: null }, locked: false, lastDeleted: null });
       return { ok: true };
     },
   };

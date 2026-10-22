@@ -48,7 +48,7 @@ export function guilloche() {
  * 封面：深色的「存折」卡片，是整个 App 里唯一的视觉焦点。
  * @param change { fen, ratio } 与上一条的变化（可为 null）；changeNote 说明比较对象
  */
-export function coverCard({ label, dateText, fen = null, complete = true, unit, change = null, changeNote = null, note = null, bar = null, split = null, owner = null, card = null, minimal = false, ariaLabel }) {
+export function coverCard({ label, dateText, fen = null, complete = true, unit, change = null, changeNote = null, note = null, bar = null, split = null, owner = null, card = null, tier = null, minimal = false, ariaLabel }) {
   // 首页用的极简版：居中只放标题、大数字和一行小字（日期 / 实时增长），其余都不放
   if (minimal) {
     const el = h(
@@ -59,6 +59,8 @@ export function coverCard({ label, dateText, fen = null, complete = true, unit, 
       h('div', { class: 'cover-meta' }, h('span', { class: 'cover-when' }, dateText)),
     );
     el.prepend(guilloche());
+    // 左上角一枚小菱形徽记，右上角压印卡片等级（GOLD / PLATINUM / BLACK……）
+    if (tier) el.append(h('span', { class: 'cover-emblem', 'aria-hidden': 'true' }), h('span', { class: 'cover-tier', title: `${tier.zh}卡` }, tier.name));
     if (bar) el.appendChild(bar);
     // 左下角：卡号（四位一组），下面一行是持有人和开始记账的年份
     if (card) {

@@ -5,6 +5,8 @@ import { closeAllSheets } from './components.js';
 import { buildHome } from './screens/home.js';
 import { buildAnalysis } from './screens/analysis.js';
 import { buildHistory } from './screens/history.js';
+import { buildSpend } from './screens/spend.js';
+import { openSpend } from './spend.js';
 import { buildImport } from './screens/importHub.js';
 import { buildSettings } from './screens/settings.js';
 import { openEntry } from './screens/entry.js';
@@ -13,11 +15,12 @@ import { buildLockScreen } from './lock.js';
 import { setTilt } from './tilt.js';
 import { skinOf } from '../core/model.js';
 
-// 底部标签栏：首页 · 分析 · ＋ · 历史 · 设置。「导入」不常用，从设置页进入（parent 决定高亮哪个标签）。
+// 底部标签栏：首页 · 开销 · ＋ · 分析 · 设置。「历史」从分析页进入，「导入」从设置页进入（parent 决定高亮哪个标签）。
 const ROUTES = {
   home: { hash: '#/', label: '首页', icon: 'home', build: buildHome },
+  spend: { hash: '#/spend', label: '开销', icon: 'receipt', build: buildSpend },
   analysis: { hash: '#/analysis', label: '分析', icon: 'pie', build: buildAnalysis },
-  history: { hash: '#/history', label: '历史', icon: 'ledger', build: buildHistory },
+  history: { hash: '#/history', label: '历史', icon: 'ledger', build: buildHistory, parent: 'analysis' },
   settings: { hash: '#/settings', label: '设置', icon: 'sliders', build: buildSettings },
   import: { hash: '#/import', label: '导入', icon: 'download', build: buildImport, parent: 'settings' },
 };
@@ -56,7 +59,8 @@ export function mountApp(rootEl, store, env = {}) {
     tabs[key] = a;
     return a;
   });
-  const fab = h('button', { type: 'button', class: 'fab', 'aria-label': '记一笔', onClick: () => ctx.nav.openEntry({}) }, icon('plus', { size: 28, stroke: 2.2 }));
+  // ＋：最常用的是记日常开销；更新资产余额在首页的大按钮和记开销面板里都能进
+  const fab = h('button', { type: 'button', class: 'fab', 'aria-label': '记一笔开销', onClick: () => openSpend(ctx) }, icon('plus', { size: 28, stroke: 2.2 }));
   const bar = h('nav', { class: 'tabbar', 'aria-label': '主导航' }, h('div', { class: 'tabbar-inner' }, tabEls[0], tabEls[1], h('div', { class: 'tab-fab' }, fab), tabEls[2], tabEls[3]));
   const app = h('div', { class: 'app' }, view, bar);
   rootEl.replaceChildren(app);

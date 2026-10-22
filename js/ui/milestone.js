@@ -3,7 +3,7 @@ import { h, icon } from './dom.js';
 import { button, toast } from './components.js';
 import { fx } from './feedback.js';
 import { compactYuan, glint } from './fmt.js';
-import { milestoneName, nextMilestone, reachedMilestones } from '../core/milestones.js';
+import { TIERS, milestoneName, nextMilestone, reachedMilestones } from '../core/milestones.js';
 import { formatMoney } from '../core/money.js';
 import { formatDateZh } from '../core/date.js';
 import { saveFile } from '../platform.js';
@@ -39,6 +39,8 @@ export function celebrate(m, { holder = '', replay = false } = {}) {
     guilloche(),
     h('div', { class: 'ms-kicker' }, h('i', { 'aria-hidden': 'true' }), t.kicker, h('i', { 'aria-hidden': 'true' })),
     h('div', { class: 'ms-title' }, t.title),
+    // 正好跨进新的卡片等级：多一行「卡片升级」
+    TIERS.find((x) => x.min === m.fen && x.min > 0) ? h('div', { class: 'ms-tier' }, `卡片升级 · ${TIERS.find((x) => x.min === m.fen).name}`) : null,
     h('div', { class: 'ms-big' }, t.big),
     h('div', { class: 'ms-rule', 'aria-hidden': 'true' }),
     h('div', { class: 'ms-total' }, t.total),

@@ -1,5 +1,5 @@
 // 分析：资产配置 → 总资产趋势 → 月度变化 → 各账户趋势。首页只放最常看的内容，图表都集中在这里。
-import { h } from '../dom.js';
+import { h, icon } from '../dom.js';
 import { button, emptyState, seg } from '../components.js';
 import { catCss } from '../fmt.js';
 import { buildDataTable, buildLineChart } from '../charts.js';
@@ -37,7 +37,7 @@ export function buildAnalysis(ctx) {
   const draw = () => {
     const { snapshots, categories, settings } = store.state;
     const unit = settings.unit;
-    const frag = [h('div', { class: 'screen-head' }, h('h1', { class: 'screen-title' }, '分析'), seg([{ value: 'yuan', label: '元' }, { value: 'wan', label: '万元' }], unit, (v) => store.updateSettings({ unit: v }), { label: '显示单位' }))];
+    const frag = [h('div', { class: 'screen-head' }, h('h1', { class: 'screen-title' }, '分析'), h('div', { class: 'head-tools' }, h('button', { type: 'button', class: 'head-link', onClick: () => nav.goto('history') }, icon('ledger', { size: 16 }), '历史'), seg([{ value: 'yuan', label: '元' }, { value: 'wan', label: '万元' }], unit, (v) => store.updateSettings({ unit: v }), { label: '显示单位' })))];
 
     if (!snapshots.length) {
       frag.push(emptyState({ glyph: 'ledger', title: '还没有可分析的记录', text: '记下几次各账户的余额后，这里会显示资产配置、趋势和每月的变化。', actions: [button('记一笔', () => nav.openEntry({}), { iconName: 'plus', block: true })] }));
